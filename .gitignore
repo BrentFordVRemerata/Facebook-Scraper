@@ -1,0 +1,115 @@
+# ============================================
+# QCU News Scraper - Git Ignore
+# ============================================
+
+# ----------------
+# Environment & Secrets
+# ----------------
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+
+# ----------------
+# Firebase Credentials (CRITICAL - Never commit!)
+# ----------------
+config/firebase_config.json
+config/firebase-*.json
+config/serviceAccount*.json
+config/cookies.txt
+
+# ----------------
+# Python
+# ----------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ----------------
+# Virtual Environments
+# ----------------
+venv/
+env/
+ENV/
+.venv/
+.ENV/
+
+# ----------------
+# IDE & Editors
+# ----------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# ----------------
+# Testing
+# ----------------
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# ----------------
+# Data & Logs (Local)
+# ----------------
+data/logs/
+data/*.sqlite
+data/*.db
+data/cache/
+data/scraper_state.json
+data/.lock
+*.log
+
+# ----------------
+# OS Files
+# ----------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ----------------
+# Temporary Files
+# ----------------
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# ----------------
+# Images Downloaded (if stored locally)
+# ----------------
+data/images/
+data/thumbnails/

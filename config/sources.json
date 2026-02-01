@@ -1,0 +1,152 @@
+{
+  "sources": [
+    {
+      "id": "qcu1994",
+      "name": "QCU Main",
+      "url": "https://www.facebook.com/qcu1994",
+      "type": "page",
+      "priority": 1,
+      "scrape_frequency_minutes": 30,
+      "posts_to_fetch": 10,
+      "enabled": true,
+      "fetch_methods": [
+        { "type": "scraper", "priority": 1 }
+      ],
+      "notes": "Official QCU main page - highest priority"
+    },
+    {
+      "id": "qcuregistrar",
+      "name": "QCU Registrar",
+      "url": "https://www.facebook.com/qcuregistrar",
+      "type": "page",
+      "priority": 2,
+      "scrape_frequency_minutes": 30,
+      "posts_to_fetch": 10,
+      "enabled": true,
+      "fetch_methods": [
+        { "type": "scraper", "priority": 1 }
+      ],
+      "notes": "Enrollment and academic records"
+    },
+    {
+      "id": "qcuguidanceunit",
+      "name": "QCU Guidance",
+      "url": "https://www.facebook.com/qcuguidanceunit",
+      "type": "page",
+      "priority": 3,
+      "scrape_frequency_minutes": 60,
+      "posts_to_fetch": 10,
+      "enabled": true,
+      "fetch_methods": [
+        { "type": "scraper", "priority": 1 }
+      ],
+      "notes": "Guidance and counseling services"
+    },
+    {
+      "id": "QCUPlacement",
+      "name": "QCU Placement",
+      "url": "https://www.facebook.com/QCUPlacement",
+      "type": "page",
+      "priority": 4,
+      "scrape_frequency_minutes": 60,
+      "posts_to_fetch": 10,
+      "enabled": true,
+      "fetch_methods": [
+        { "type": "scraper", "priority": 1 }
+      ],
+      "notes": "Job placements and career opportunities"
+    },
+    {
+      "id": "qcuiskolarcouncil",
+      "name": "QCU Iskolar Council",
+      "url": "https://www.facebook.com/qcuiskolarcouncil",
+      "type": "page",
+      "priority": 5,
+      "scrape_frequency_minutes": 60,
+      "posts_to_fetch": 10,
+      "enabled": true,
+      "fetch_methods": [
+        { "type": "scraper", "priority": 1 }
+      ],
+      "notes": "Student council announcements"
+    },
+    {
+      "id": "qculibrary",
+      "name": "QCU Library",
+      "url": "https://www.facebook.com/qculibrary",
+      "type": "page",
+      "priority": 6,
+      "scrape_frequency_minutes": 120,
+      "posts_to_fetch": 10,
+      "enabled": true,
+      "fetch_methods": [
+        { "type": "scraper", "priority": 1 }
+      ],
+      "notes": "Library services and resources"
+    },
+    {
+      "id": "qcutimes",
+      "name": "QCU Times",
+      "url": "https://www.facebook.com/qcutimes",
+      "type": "page",
+      "priority": 7,
+      "scrape_frequency_minutes": 120,
+      "posts_to_fetch": 10,
+      "enabled": true,
+      "fetch_methods": [
+        { "type": "scraper", "priority": 1 }
+      ],
+      "notes": "Campus news and features"
+    },
+    {
+      "id": "group_387936581864052",
+      "name": "QCU Private Group 1",
+      "url": "https://www.facebook.com/groups/387936581864052/",
+      "type": "group",
+      "priority": 10,
+      "scrape_frequency_minutes": 60,
+      "posts_to_fetch": 10,
+      "enabled": false,
+      "requires_cookies": true,
+      "fetch_methods": [
+        { "type": "scraper", "priority": 1, "cookies_required": true }
+      ],
+      "notes": "Private group - Phase 2 (disabled by default)"
+    },
+    {
+      "id": "group_391073628062510",
+      "name": "QCU Private Group 2",
+      "url": "https://www.facebook.com/groups/391073628062510/",
+      "type": "group",
+      "priority": 11,
+      "scrape_frequency_minutes": 60,
+      "posts_to_fetch": 10,
+      "enabled": false,
+      "requires_cookies": true,
+      "fetch_methods": [
+        { "type": "scraper", "priority": 1, "cookies_required": true }
+      ],
+      "notes": "Private group - Phase 2 (disabled by default)"
+    },
+    {
+      "id": "group_1257895282002910",
+      "name": "QCU Private Group 3",
+      "url": "https://www.facebook.com/groups/1257895282002910/",
+      "type": "group",
+      "priority": 12,
+      "scrape_frequency_minutes": 60,
+      "posts_to_fetch": 10,
+      "enabled": false,
+      "requires_cookies": true,
+      "fetch_methods": [
+        { "type": "scraper", "priority": 1, "cookies_required": true }
+      ],
+      "notes": "Private group - Phase 2 (disabled by default)"
+    }
+  ],
+  "_metadata": {
+    "version": "1.0.0",
+    "last_updated": "2026-02-01",
+    "description": "Facebook sources configuration for QCU News Scraper"
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "urgency_keywords": {
+    "URGENT": ["urgent", "importante", "important", "emergency", "emerhensya"],
+    "SUSPENDED": ["suspended", "suspendido", "no classes", "walang pasok", "class suspension"],
+    "CANCELED": ["canceled", "cancelled", "kanselado", "postponed"],
+    "DEADLINE": ["deadline", "due date", "last day", "huling araw"],
+    "REMINDER": ["reminder", "paalala", "take note", "don't forget"]
+  },
+  
+  "program_keywords": {
+    "BSIT": ["bsit", "information technology", "it students", "it department"],
+    "BSCE": ["bsce", "civil engineering", "ce students", "ce department"],
+    "BSEE": ["bsee", "electrical engineering", "ee students", "ee department"],
+    "BSME": ["bsme", "mechanical engineering", "me students", "me department"],
+    "ENTREP": ["entrep", "entrepreneurship", "business", "bsentrep"],
+    "BSBA": ["bsba", "business administration", "ba students"],
+    "BEED": ["beed", "elementary education", "education students"],
+    "BSED": ["bsed", "secondary education", "teaching"],
+    "BSHM": ["bshm", "hospitality management", "tourism", "hm students"],
+    "ALL": ["all students", "lahat ng estudyante", "all programs", "university-wide"]
+  },
+  
+  "category_keywords": {
+    "ENROLLMENT": ["enrollment", "enrolment", "registration", "pagpapatala"],
+    "EXAM": ["exam", "examination", "finals", "midterm", "test", "pagsusulit"],
+    "SCHEDULE": ["schedule", "iskedyul", "calendar", "date", "petsa"],
+    "EVENT": ["event", "activity", "program", "celebration", "seminar", "webinar"],
+    "SCHOLARSHIP": ["scholarship", "iskolarship", "grant", "financial aid", "tuition"],
+    "ANNOUNCEMENT": ["announcement", "anunsyo", "advisory", "notice", "memo"],
+    "GRADUATION": ["graduation", "commencement", "graduate", "pagtatapos"],
+    "REQUIREMENT": ["requirement", "submit", "submission", "documents", "requirements"]
+  },
+  
+  "title_templates": {
+    "SUSPENDED": "[URGENT] Classes Suspended",
+    "CANCELED": "[URGENT] Event Canceled",
+    "DEADLINE": "Important Deadline",
+    "ENROLLMENT": "Enrollment Notice",
+    "EXAM": "Examination Announcement",
+    "SCHOLARSHIP": "Scholarship Opportunity",
+    "GRADUATION": "Graduation Announcement",
+    "EVENT": "Upcoming Event",
+    "SCHEDULE": "Schedule Update",
+    "REQUIREMENT": "Submission Reminder"
+  },
+  
+  "exclude_patterns": [
+    "shared a post",
+    "shared a photo",
+    "shared a link",
+    "updated their cover photo",
+    "updated their profile picture",
+    "is live now",
+    "was live",
+    "changed their",
+    "added a new photo",
+    "likes this",
+    "commented on"
+  ],
+  
+  "sanitization": {
+    "remove_emojis": false,
+    "remove_urls": false,
+    "remove_hashtags": false,
+    "max_body_length": 5000,
+    "max_title_length": 100,
+    "normalize_whitespace": true
+  },
+  
+  "_metadata": {
+    "version": "1.0.0",
+    "last_updated": "2026-02-01",
+    "description": "Keyword configuration for auto-tagging and title generation"
+  }
+}

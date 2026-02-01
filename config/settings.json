@@ -1,0 +1,162 @@
+{
+  "general": {
+    "timezone": "Asia/Manila",
+    "log_level": "INFO",
+    "dry_run": false,
+    "version": "1.0.0"
+  },
+  
+  "scraping": {
+    "default_posts_per_source": 10,
+    "default_timeout_seconds": 30,
+    "use_playwright_backup": true,
+    "respect_priority_order": true,
+    
+    "rate_limiting": {
+      "delay_between_sources_seconds": [5, 10],
+      "delay_between_posts_seconds": [1, 2],
+      "delay_for_groups_multiplier": 1.5
+    },
+    
+    "retry": {
+      "max_retries": 3,
+      "initial_delay_seconds": 5,
+      "backoff_multiplier": 2,
+      "max_delay_seconds": 300
+    }
+  },
+  
+  "duplicate_detection": {
+    "enabled": true,
+    "hash_algorithm": "sha256",
+    "fuzzy_match_enabled": true,
+    "fuzzy_match_threshold": 0.95,
+    "check_date_difference": true,
+    "skip_reshares": true,
+    "link_reshares_to_original": true
+  },
+  
+  "title_generation": {
+    "enabled": true,
+    "use_keywords": true,
+    "fallback_to_first_sentence": true,
+    "max_title_length": 80,
+    "ai_summary_enabled": false,
+    "ai_summary_provider": null
+  },
+  
+  "image_handling": {
+    "enabled": true,
+    "download_images": true,
+    "compress_images": true,
+    "compression_quality": 80,
+    "max_size_kb": 500,
+    "create_thumbnails": true,
+    "thumbnail_size": [200, 200],
+    "storage_retention_days": 180,
+    "fallback_to_url_only": true
+  },
+  
+  "edit_tracking": {
+    "enabled": true,
+    "max_history_versions": 10,
+    "track_fields": ["body", "images"],
+    "alert_on_suspicious_edit": true,
+    "suspicious_change_threshold": 0.5
+  },
+  
+  "scaling": {
+    "mode": "single",
+    "max_workers": 3,
+    "lock_file": "data/.lock",
+    "source_batch_size": 5
+  },
+  
+  "authentication": {
+    "cookies_file": "config/cookies.txt",
+    "cookie_refresh_days": 30,
+    "alert_on_cookie_expiry": true
+  },
+  
+  "firebase": {
+    "project_id": "${FIREBASE_PROJECT_ID}",
+    "credentials_file": "config/firebase_config.json",
+    "collection_announcements": "announcements",
+    "collection_scraper_state": "scraper_state",
+    "collection_config": "config",
+    "storage_bucket": "${FIREBASE_STORAGE_BUCKET}",
+    "storage_images_path": "images/",
+    "storage_thumbnails_path": "thumbnails/"
+  },
+  
+  "monitoring": {
+    "health_check_enabled": true,
+    "health_check_on_start": true,
+    "health_check_interval_minutes": 30,
+    
+    "alerts": {
+      "enabled": true,
+      "channels": {
+        "discord": {
+          "enabled": true,
+          "webhook_url": "${DISCORD_WEBHOOK_URL}",
+          "severity_filter": ["CRITICAL", "WARNING"]
+        },
+        "email": {
+          "enabled": false,
+          "smtp_server": "smtp.gmail.com",
+          "smtp_port": 587,
+          "smtp_username": "${SMTP_USERNAME}",
+          "smtp_password": "${SMTP_PASSWORD}",
+          "recipients": []
+        },
+        "telegram": {
+          "enabled": false,
+          "bot_token": "${TELEGRAM_BOT_TOKEN}",
+          "chat_id": "${TELEGRAM_CHAT_ID}"
+        }
+      },
+      "alert_cooldown_minutes": 60,
+      "alert_on_block": true,
+      "alert_on_consecutive_failures": 3
+    },
+    
+    "logging": {
+      "enabled": true,
+      "log_to_file": true,
+      "log_dir": "data/logs",
+      "max_log_files": 30,
+      "log_format": "json"
+    }
+  },
+  
+  "recovery": {
+    "enabled": true,
+    "checkpoint_file": "data/scraper_state.json",
+    "checkpoint_interval_sources": 1,
+    "resume_on_startup": true,
+    "clear_checkpoint_on_success": true
+  },
+  
+  "data_retention": {
+    "max_posts_to_keep": 10000,
+    "delete_posts_older_than_days": 365,
+    "archive_deleted_posts": true,
+    "archive_collection": "announcements_archive"
+  },
+  
+  "_metadata": {
+    "version": "1.0.0",
+    "last_updated": "2026-02-01",
+    "description": "Main settings configuration for QCU News Scraper",
+    "environment_variables": [
+      "FIREBASE_PROJECT_ID",
+      "FIREBASE_STORAGE_BUCKET",
+      "DISCORD_WEBHOOK_URL",
+      "SMTP_USERNAME",
+      "SMTP_PASSWORD",
+      "TELEGRAM_BOT_TOKEN",
+      "TELEGRAM_CHAT_ID"
+    ]
+  }
+}
