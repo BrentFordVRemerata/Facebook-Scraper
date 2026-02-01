@@ -1,247 +1,142 @@
-# 🎓 QCU News Scraper
+# QCU Facebook Scraper
 
-> **Automated Facebook scraper for Quezon City University announcements**
+**Status:** ✅ Working - Saves to Firebase  
+**Last Tested:** February 1, 2026  
+**Posts Scraped:** 47 from 7 pages
 
-[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
-[![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange.svg)](https://firebase.google.com/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-In%20Development-yellow.svg)]()
+Scrapes announcements from QCU Facebook pages and saves to Firebase.
 
----
+## What Works Now
 
-## 🎯 What is this?
+| Feature | Status |
+|---------|--------|
+| Scrape posts | ✅ 47 posts from 7 pages |
+| Save to Firebase | ✅ Working |
+| Performance stats | ✅ ~20s per page |
 
-A **scalable, flexible** Python scraper that centralizes QCU Facebook announcements into one feed.
+## What's Missing (TODO)
 
-```mermaid
-graph LR
-    FB[("📘 Facebook<br/>10+ Pages")] --> Scraper["🤖 This Scraper"]
-    Scraper --> Firebase[("☁️ Firebase")]
-    Firebase --> App["📱 Student App"]
-    
-    style Scraper fill:#4caf50,color:#fff
+| Feature | Status | Priority | Why Needed |
+|---------|--------|----------|------------|
+| Post URLs | ❌ | 🔴 High | "View on Facebook" button |
+| Post dates | ❌ | 🔴 High | Sort by time |
+| Images | ❌ | 🔴 High | Rich card display |
+| Source names | ⚠️ Uses ID | 🟡 Medium | Show "QCU Main" not "qcu1994" |
+| Tags | ❌ | 🟡 Medium | Filter by URGENT, ENROLLMENT |
+
+## Display Strategy
+
+```
+┌────────────────────────────────┐
+│ 🏛️ QCU Main                   │
+│ 📅 Yesterday at 12:33 PM       │
+│                                │
+│ Today marks a milestone...     │
+│                                │
+│ [THUMBNAIL IMAGE]              │
+│                                │
+│     [View on Facebook →]       │  ← Links to post_url
+└────────────────────────────────┘
 ```
 
-### The Problem
+Posts displayed as preview cards, clicking redirects to Facebook.
 
-- Students follow **10+ different Facebook pages**
-- Important announcements get **missed**
-- No **central place** to see all updates
+## Current Performance
 
-### The Solution
+| Scraper | Time/Page | Posts | Status |
+|---------|-----------|-------|--------|
+| Selenium | ~21s | 6-10 | ✅ Primary |
+| Playwright | ~15s | 5-10 | ✅ Backup (faster) |
 
-This scraper automatically:
-- ✅ Fetches posts from all official QCU pages
-- ✅ Detects duplicates and reshares
-- ✅ Tags content (URGENT, BSIT, ENTREP, etc.)
-- ✅ Uploads to Firebase for the mobile app
-
----
-
-## ⚡ Quick Start
-
-### Prerequisites
-
-- Python 3.11+
-- Firebase account (free tier works)
-- Git
-
-### Installation
+## Quick Start
 
 ```bash
-# Clone the repo
-git clone https://github.com/yourusername/qcu-news-scraper.git
-cd qcu-news-scraper
+# 1. Activate virtual environment
+.venv\Scripts\activate
 
-# Create virtual environment
-python -m venv venv
+# 2. Run scraper (interactive mode)
+python src/scraper.py
 
-# Activate (Windows)
-venv\Scripts\activate
+# 3. Or run specific page
+python src/scraper.py --page qcu1994 --headless
 
-# Activate (macOS/Linux)
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+# 4. Or run all pages
+python src/scraper.py --all --headless
 ```
 
-### Configuration
+## Commands
 
-1. **Copy example config:**
-   ```bash
-   cp .env.example .env
-   cp config/settings.example.json config/settings.json
-   ```
+```bash
+# Selenium (recommended - more stable)
+python src/scraper.py                     # Interactive test
+python src/scraper.py -p qcu1994          # Single page
+python src/scraper.py --all --headless    # All sources, no browser window
 
-2. **Add Firebase credentials:**
-   - Download from Firebase Console → Project Settings → Service Accounts
-   - Save as `config/firebase_config.json`
-
-3. **Run the scraper:**
-   ```bash
-   python src/main.py
-   ```
-
----
-
-## 📚 Documentation
-
-| Document | Description |
-|----------|-------------|
-| [GUIDE.md](./GUIDE.md) | **Development guide** - Detailed implementation docs |
-| [QCU Unified Network.md](./QCU%20Unified%20Network.md) | **Architecture** - System design and flowcharts |
-
----
-
-## 🏗️ Architecture Overview
-
-```mermaid
-graph TD
-    subgraph Input["📥 Input"]
-        FB1[QCU Main]
-        FB2[QCU Registrar]
-        FB3[QCU Guidance]
-        FBN[+ 7 more...]
-    end
-    
-    subgraph Processing["⚙️ Processing"]
-        Scraper[Scraper Engine]
-        Dedup[Duplicate Detector]
-        Tagger[Auto Tagger]
-    end
-    
-    subgraph Output["📤 Output"]
-        Firebase[(Firestore)]
-        Storage[(Image Storage)]
-    end
-    
-    FB1 --> Scraper
-    FB2 --> Scraper
-    FB3 --> Scraper
-    FBN --> Scraper
-    
-    Scraper --> Dedup --> Tagger --> Firebase
-    Tagger -.-> Storage
+# Playwright (faster - use if Selenium fails)
+python src/scraper_playwright.py          # Interactive test
+python src/scraper_playwright.py -p qcu1994  # Single page
 ```
 
----
+## Setup
 
-## ✨ Features
+### 1. Facebook Cookies
 
-| Feature | Status | Description |
-|---------|--------|-------------|
-| Multi-source scraping | ✅ | Scrape 10+ Facebook pages |
-| Duplicate detection | ✅ | Skip already-scraped posts |
-| Reshare detection | ✅ | Link reshares to original |
-| Auto-tagging | ✅ | URGENT, BSIT, ENTREP, etc. |
-| Title generation | ✅ | Generate titles from keywords |
-| Image handling | ✅ | Compress and store images |
-| Edit tracking | ✅ | Track post changes over time |
-| Health monitoring | ✅ | Pre-flight checks before scraping |
-| Discord alerts | ✅ | Get notified on failures |
-| Priority system | ✅ | Scrape important sources first |
-| Failure recovery | ✅ | Resume from where it stopped |
+Export your Facebook login cookies:
 
----
+1. Install "Get cookies.txt LOCALLY" Chrome extension
+2. Go to facebook.com (logged in)
+3. Click extension → Export
+4. Save as `config/facebook_cookies.txt`
 
-## 📁 Project Structure
+### 2. Firebase
+
+1. Go to [Firebase Console](https://console.firebase.google.com)
+2. Create project → Create Firestore Database (asia-southeast1)
+3. Project Settings → Service Accounts → Generate Key
+4. Save as `config/firebase-key.json`
+
+### 3. Sources
+
+Edit `config/sources.json` to add/remove pages to scrape.
+
+## Project Structure
 
 ```
-qcu-news-scraper/
-├── 📄 README.md              # You are here
-├── 📄 GUIDE.md               # Development guide
-├── 📄 QCU Unified Network.md # Architecture docs
-├── 📄 requirements.txt       # Python dependencies
-│
-├── 📁 src/                   # Source code
-│   ├── main.py               # Entry point
-│   ├── scraper/              # Scraping modules
-│   ├── processors/           # Data processing
-│   ├── storage/              # Firebase client
-│   └── monitoring/           # Health & alerts
-│
-├── 📁 config/                # Configuration
-│   ├── sources.json          # FB pages to scrape
-│   ├── keywords.json         # Tagging rules
-│   └── settings.json         # App settings
-│
-└── 📁 tests/                 # Unit tests
+├── main.py                    # Entry point (runs all sources)
+├── test_scraper.py            # Check setup works
+├── src/
+│   ├── scraper.py             # Selenium scraper (PRIMARY)
+│   ├── scraper_playwright.py  # Playwright scraper (BACKUP)
+│   └── database.py            # Firebase operations
+├── config/
+│   ├── sources.json           # Pages to scrape
+│   ├── facebook_cookies.txt   # Your cookies (SECRET)
+│   └── firebase-key.json      # Firebase key (SECRET)
+├── data/
+│   ├── last_stats.json        # Performance stats (Selenium)
+│   └── last_stats_playwright.json  # Performance stats (Playwright)
+├── GUIDE.md                   # Development guide (detailed)
+└── QCU Unified Network.md     # Architecture document
 ```
 
----
+## Troubleshooting
 
-## ⚙️ Configuration
+| Problem | Solution |
+|---------|----------|
+| No posts found | Export fresh cookies from browser |
+| Timeout error | Increase wait times in scraper |
+| Facebook blocking | Wait 1-2 hours, try again |
+| Firebase error | Check firebase-key.json exists |
 
-### Sources (`config/sources.json`)
+## Scale Estimates
 
-```json
-{
-  "sources": [
-    {
-      "id": "qcu1994",
-      "name": "QCU Main",
-      "url": "https://www.facebook.com/qcu1994",
-      "priority": 1,
-      "enabled": true
-    }
-  ]
-}
-```
+| Pages | Selenium | Playwright |
+|-------|----------|------------|
+| 7 | 2.5 min | 1.7 min |
+| 50 | 18 min | 12 min |
+| 100 | 36 min | 24 min |
 
-### Keywords (`config/keywords.json`)
+## Note
 
-```json
-{
-  "urgency": ["SUSPENDED", "CANCELED", "URGENT"],
-  "programs": ["BSIT", "BSCE", "ENTREP", "BSBA"],
-  "categories": ["ENROLLMENT", "EXAM", "SCHOLARSHIP"]
-}
-```
+⚠️ Scraping Facebook violates their ToS. Use responsibly for educational purposes only.
 
----
-
-## ⚠️ Limitations & Risks
-
-| Risk | Severity | Mitigation |
-|------|----------|------------|
-| Facebook may block scraper | HIGH | Playwright backup + Admin Portal |
-| `facebook-scraper` library outdated | HIGH | Monitoring for alternatives |
-| Private groups need cookies | MEDIUM | Phase 2 implementation |
-
----
-
-## 🤝 Contributing
-
-1. Read [GUIDE.md](./GUIDE.md) first
-2. Follow the design principles (Scalability, Simplicity, Readability)
-3. Update documentation with code changes
-4. Write tests for new features
-
----
-
-## 📜 License
-
-MIT License - See [LICENSE](./LICENSE) for details.
-
----
-
-## 👥 Team
-
-| Role | Name |
-|------|------|
-| Lead Architect | Brent Ford V. Remerata |
-| Team | Platform Technologies Group |
-
----
-
-## 🔗 Related Repositories
-
-| Repo | Description |
-|------|-------------|
-| `qcu-student-app` | Flutter mobile app for students |
-| `qcu-admin-portal` | Web portal for manual posting |
-
----
-
-*Part of the QCU Unified Network project*

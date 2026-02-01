@@ -1,74 +1,10 @@
-# ============================================
-# QCU News Scraper - Python Dependencies
-# ============================================
-# Install with: pip install -r requirements.txt
-# ============================================
+# Core dependencies
+selenium>=4.15.0
+webdriver-manager>=4.0.0
+firebase-admin>=6.0.0
+beautifulsoup4>=4.12.0
+requests>=2.31.0
+python-dotenv>=1.0.0
 
-# ----------------
-# Core Scraping
-# ----------------
-facebook-scraper>=0.2.59      # Primary Facebook scraper (WARNING: Last update Aug 2022)
-playwright>=1.40.0             # Backup scraper - browser automation
-beautifulsoup4>=4.12.0         # HTML parsing
-lxml>=4.9.0                    # Fast XML/HTML parser
-
-# ----------------
-# Firebase / Google Cloud
-# ----------------
-firebase-admin>=6.0.0          # Firebase Admin SDK
-google-cloud-firestore>=2.14.0 # Firestore client
-google-cloud-storage>=2.14.0   # Cloud Storage for images
-
-# ----------------
-# Data Processing
-# ----------------
-python-dateutil>=2.8.0         # Date parsing and handling
-pytz>=2024.1                   # Timezone support (PHT/UTC+8)
-rapidfuzz>=3.5.0               # Fuzzy string matching for duplicates
-Pillow>=10.0.0                 # Image processing and compression
-
-# ----------------
-# Configuration & Validation
-# ----------------
-python-dotenv>=1.0.0           # Load .env files
-pydantic>=2.5.0                # Data validation and settings
-
-# ----------------
-# HTTP & Networking
-# ----------------
-httpx>=0.25.0                  # Modern async HTTP client
-requests>=2.31.0               # HTTP client (for webhooks)
-
-# ----------------
-# Logging & Monitoring
-# ----------------
-structlog>=24.1.0              # Structured logging
-rich>=13.0.0                   # Rich console output
-
-# ----------------
-# Scheduling
-# ----------------
-schedule>=1.2.0                # Task scheduling
-APScheduler>=3.10.0            # Advanced scheduler (optional)
-
-# ----------------
-# Database (Local Cache)
-# ----------------
-# SQLite is built into Python - no extra package needed
-
-# ----------------
-# Development
-# ----------------
-pytest>=7.4.0                  # Testing framework
-pytest-asyncio>=0.23.0         # Async test support
-pytest-cov>=4.1.0              # Test coverage
-black>=23.12.0                 # Code formatter
-isort>=5.13.0                  # Import sorter
-flake8>=7.0.0                  # Linter
-mypy>=1.8.0                    # Type checker
-
-# ----------------
-# Optional: AI Summaries (Future)
-# ----------------
-# openai>=1.0.0                # OpenAI API (uncomment when needed)
-# anthropic>=0.8.0             # Claude API (uncomment when needed)
+# Alternative scraper (faster, better for scale)
+playwright>=1.40.0

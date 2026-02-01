@@ -18,7 +18,14 @@ secrets/
 config/firebase_config.json
 config/firebase-*.json
 config/serviceAccount*.json
+
+# ----------------
+# Facebook Cookies (CRITICAL - Contains your login session!)
+# ----------------
 config/cookies.txt
+config/facebook_cookies.txt
+config/*cookies*
+*.cookies.txt
 
 # ----------------
 # Python

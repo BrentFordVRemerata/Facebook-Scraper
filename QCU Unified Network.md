@@ -97,8 +97,10 @@ graph TD
 ## 3. Component Deep Dive: "The Listener" (Backend)
 
 **Repository:** `qcu-news-scraper`  
-**Tech:** Python 3.11+, `facebook-scraper` (primary) / `playwright` (backup), Firebase Admin SDK  
+**Tech:** Python 3.14, Selenium (primary) / Playwright (backup), Firebase Admin SDK  
 **Timezone:** Asia/Manila (UTC+8) - Philippine Standard Time
+
+> **Note:** Originally planned to use `facebook-scraper` library, but it has 438+ open issues and is outdated. We built custom scrapers using Selenium and Playwright instead.
 
 ### 3.1 Main Processing Flow
 
@@ -414,12 +416,15 @@ Copy these prompts into GitHub Copilot/Gemini to get the code you need.
 
 ### Build the Scraper Core
 
-> "Act as a Python Backend Engineer. Create a FacebookScraper class using the `facebook-scraper` library. It should:
+> **Note:** We already built this! See `src/scraper.py` (Selenium) and `src/scraper_playwright.py` (Playwright).
+>
+> "Act as a Python Backend Engineer. Create a FacebookScraper class using Selenium WebDriver. It should:
 > 1. Accept a list of page URLs from a JSON config file
-> 2. Fetch the latest 10 posts from each page
-> 3. Handle rate limiting with exponential backoff (5s, 10s, 20s, 40s)
-> 4. Return a list of dictionaries with: post_id, text, timestamp, images, author
-> 5. All timestamps must be converted to UTC
+> 2. Load cookies for authentication
+> 3. Fetch the latest posts from each page by scrolling
+> 4. Handle rate limiting with delays between requests
+> 5. Return a list of dictionaries with: post_id, text, timestamp, images, author
+> 6. Track performance statistics (timing breakdown)
 > Use type hints and include docstrings."
 
 ### Build the Duplicate Detector
@@ -475,7 +480,8 @@ graph TD
 | Facebook blocks scraper | CRITICAL | HIGH | Admin Portal for manual posting |
 | Student offline | MEDIUM | HIGH | Firestore offline persistence |
 | Fake news scraped | HIGH | LOW | Allowlist only 10 official sources |
-| `facebook-scraper` breaks | HIGH | HIGH | Playwright backup ready |
+| Selenium gets blocked | MEDIUM | MEDIUM | Switch to Playwright backup ✅ |
+| Playwright times out | MEDIUM | LOW | Use `domcontentloaded` instead of `networkidle` ✅ |
 | Firebase costs spike | MEDIUM | LOW | Budget alerts at $5, $10, $25 |
 
 ---

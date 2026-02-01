@@ -1,0 +1,21 @@
+{
+  "page_id": "qcu1994",
+  "tool": "playwright",
+  "timing": {
+    "browser_init": 0.49,
+    "facebook_load": 1.8,
+    "cookies": 0.02,
+    "page_navigate": 5.34,
+    "scrolling": 7.04,
+    "extraction": 0.03,
+    "total": 14.73
+  },
+  "results": {
+    "posts_found": 5,
+    "text_lines": 514,
+    "text_blocks": 8,
+    "html_size_kb": 5246.8
+  },
+  "success": true,
+  "error": null
+}

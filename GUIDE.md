@@ -3,8 +3,9 @@
 > **Purpose:** This document serves as the living context for AI assistants and developers working on this project. It tracks progress, decisions, and implementation details.
 
 **Last Updated:** February 1, 2026  
-**Current Phase:** Planning & Architecture (Deep Dive)  
-**Timezone:** Asia/Manila (PHT / UTC+8)
+**Current Phase:** Development - Scraper Implementation ✅  
+**Timezone:** Asia/Manila (PHT / UTC+8)  
+**Scraper Status:** Working! (Selenium + Playwright)
 
 ---
 
@@ -97,7 +98,8 @@ University announcements are **fragmented across 10+ Facebook pages** (and growi
 
 | Challenge | Severity | Mitigation |
 |-----------|----------|------------|
-| **facebook-scraper is outdated** | HIGH | Has 438 open issues, last update Aug 2022. Playwright backup ready. |
+| **facebook-scraper is outdated** | HIGH | ~~Has 438 open issues~~. Using Selenium instead ✅ |
+| **Selenium may be blocked** | MEDIUM | Playwright backup created ✅ |
 | **Facebook actively blocks scrapers** | HIGH | Use cookies, realistic delays, handle blocks gracefully |
 | **Private groups need membership** | MEDIUM | Need dedicated account that's a member |
 | **Maintenance burden** | MEDIUM | When FB changes HTML, scraper breaks. Need ongoing fixes. |
@@ -1202,43 +1204,172 @@ pie title Library Risk Distribution
 
 ## 📊 Current Progress
 
+### 🎉 MILESTONE: Full Pipeline Working!
+
+**February 1, 2026** - Successfully scraped 47 posts from 7 pages and saved to Firebase!
+
+**Latest Run Results:**
+| Page | Posts | Time |
+|------|-------|------|
+| QCU Main | 6 | 20.7s |
+| QCU Registrar | 10 | 20.7s |
+| QCU Guidance | 3 | 20.5s |
+| QCU Placement | 10 | 20.4s |
+| QCU Iskolar Council | 8 | 20.3s |
+| QCU Library | 0 | 20.5s |
+| QCU Times | 10 | 20.0s |
+| **TOTAL** | **47** | **~2.5 min** |
+
+### Current Data Structure (What We Collect)
+
+```json
+{
+  "post_id": "qcu1994_42ef9169",
+  "source_id": "qcu1994",
+  "source_name": "qcu1994",
+  "title": "Ready to take the next big step...",
+  "text": "Full post text here...",
+  "scraped_at": "2026-02-01T08:32:11+00:00",
+  "content_hash": "47078e181e0..."
+}
+```
+
+### Gap Analysis: Current vs Target
+
+| Field | Target (Architecture) | Current | Status |
+|-------|----------------------|---------|--------|
+| post_id | ✅ | ✅ | Done |
+| text | ✅ | ✅ | Done |
+| title | Smart keywords | First 80 chars | ⚠️ Basic |
+| **posted_at** | ✅ | ❌ | 🔴 **MISSING** |
+| **post_url** | ✅ | ❌ | 🔴 **MISSING** |
+| **images[]** | ✅ | ❌ | 🔴 **MISSING** |
+| source.name | "QCU Main" | "qcu1994" | ⚠️ Uses ID |
+| engagement | likes/shares | ❌ | 🟡 Nice to have |
+| tags | URGENT, BSIT | ❌ | 🟡 TODO |
+
+### What's Blocking Full Vision
+
+To display posts like Facebook (with images, dates, links), we need:
+
+1. **Post URL** - Extract the permalink for "View on Facebook"
+2. **Posted Date** - Parse "Yesterday at 12:33 PM" → actual timestamp
+3. **Images** - Extract image URLs from posts
+4. **Source Display Name** - Show "QCU Iskolar Council" not "qcuiskolarcouncil"
+
 ### Phase Status
 
 ```mermaid
 gantt
     title Project Progress
     dateFormat  YYYY-MM-DD
-    section Planning
-    Research & Analysis      :done, 2026-02-01, 1d
-    Architecture Design      :done, 2026-02-01, 1d
-    Documentation           :active, 2026-02-01, 2d
-    section Development
-    Environment Setup       :2026-02-03, 1d
-    Core Scraper           :2026-02-04, 3d
-    Processing Pipeline    :2026-02-07, 2d
-    Firebase Integration   :2026-02-09, 2d
-    section Testing
-    Unit Tests             :2026-02-11, 2d
-    Integration Tests      :2026-02-13, 1d
-    section Deployment
-    Scheduler Setup        :2026-02-14, 1d
-    Monitoring Setup       :2026-02-15, 1d
+    section Phase 1: MVP
+    Scraper Working         :done, 2026-02-01, 1d
+    Firebase Connected      :done, 2026-02-01, 1d
+    Basic Data Saving       :done, 2026-02-01, 1d
+    section Phase 2: Rich Data
+    Post URLs               :active, 2026-02-02, 1d
+    Post Dates              :2026-02-02, 1d
+    Image URLs              :2026-02-03, 1d
+    Source Names            :2026-02-03, 1d
+    section Phase 3: Processing
+    Keyword Tagging         :2026-02-04, 1d
+    Duplicate Detection     :2026-02-04, 1d
+    Date Filtering          :2026-02-05, 1d
+    section Phase 4: Polish
+    Error Recovery          :2026-02-06, 1d
+    Scheduled Runs          :2026-02-07, 1d
 ```
 
 ### Checklist
 
-- [x] Initial research
-- [x] Requirements gathering
-- [x] Architecture design
-- [x] Documentation (GUIDE.md, QCU Unified Network.md)
-- [ ] Environment setup
-- [ ] Core scraper development
-- [ ] Processing pipeline
-- [ ] Firebase integration
+**Phase 1: MVP** ✅
+- [x] Selenium scraper working
+- [x] Playwright backup working
+- [x] Firebase connected
+- [x] Basic data saving to Firestore
+- [x] Cookie authentication
+- [x] Performance tracking
+
+**Phase 2: Rich Data** 🔄
+- [ ] Extract post URLs (permalinks)
+- [ ] Extract/parse post dates
+- [ ] Extract image URLs
+- [ ] Use proper source display names
+
+**Phase 3: Processing** ⏳
+- [ ] Keyword-based tagging
+- [ ] Duplicate detection (content_hash)
+- [ ] Filter old/pinned posts
+- [ ] Better title generation
+
+**Phase 4: Polish** ⏳
+- [ ] Error recovery & retries
+- [ ] Scheduled runs (GitHub Actions)
 - [ ] Health monitoring
 - [ ] Alert system
-- [ ] Testing
-- [ ] Deployment
+
+---
+
+## 🔧 Scraper Implementation Details
+
+### Current Architecture
+
+```
+src/
+├── scraper.py           # Selenium-based scraper (PRIMARY)
+├── scraper_playwright.py # Playwright backup (FASTER)
+├── database.py          # Firebase operations
+└── __init__.py
+```
+
+### Selenium vs Playwright Comparison
+
+| Factor | Selenium (Current) | Playwright (Backup) |
+|--------|-------------------|---------------------|
+| Speed | ~22s/page | ~15s/page |
+| Posts Found | 6 | 5 |
+| Stability | ⭐⭐⭐⭐ | ⭐⭐⭐ (needed fix for FB) |
+| Anti-detection | ⭐⭐⭐ | ⭐⭐⭐⭐ |
+| Parallel support | Complex | Native |
+| Auto-wait | Manual sleeps | Built-in |
+
+**Tested February 1, 2026:**
+- Selenium: 21.85s, 6 posts ✅
+- Playwright: 14.73s, 5 posts ✅ (32% faster)
+
+### When to Use Which?
+
+| Scenario | Recommended Tool |
+|----------|-----------------|
+| Daily scraping (< 20 pages) | Selenium |
+| Large batch (50+ pages) | Playwright with browser reuse |
+| Selenium gets blocked | Switch to Playwright |
+| Need debugging | Selenium (simpler) |
+
+### Commands
+
+```bash
+# Selenium (current working version)
+python src/scraper.py                    # Interactive test
+python src/scraper.py --page qcu1994     # Single page
+python src/scraper.py --all --headless   # All sources
+
+# Playwright (backup)
+python src/scraper_playwright.py                    # Interactive test
+python src/scraper_playwright.py --page qcu1994     # Single page
+python src/scraper_playwright.py --compare          # Compare both tools
+```
+
+### Scale Projections
+
+| Pages | Selenium | Playwright | Savings |
+|-------|----------|------------|---------|
+| 7 | 2.5 min | 1.7 min | 48s |
+| 50 | 18 min | 12 min | 6 min |
+| 100 | 36 min | 24 min | 12 min |
+
+> **Note:** Times are sequential (one page at a time). Playwright can run parallel for even faster results.
 
 ---
 
@@ -1249,19 +1380,159 @@ gantt
 | 2026-02-01 | Use PHT (UTC+8) timezone | User's local time | User |
 | 2026-02-01 | Generate titles from keywords | FB posts have no titles | Architect |
 | 2026-02-01 | Hash full text for duplicates | More accurate detection | Architect |
-| 2026-02-01 | Compress images before storage | Save storage costs | Architect |
 | 2026-02-01 | Start with single process | Keep it simple first | User |
-| 2026-02-01 | Use Discord for alerts | Free and real-time | User |
-| 2026-02-01 | Priority 1-100 numeric system | Simple to implement | Architect |
-| 2026-02-01 | Track post edits | Detect important updates | User |
-| 2026-02-01 | Check RSS before scraping | More reliable if available | Architect |
 | 2026-02-01 | Skip private groups in Phase 1 | Lower risk to start | User |
+| 2026-02-01 | **Use Selenium as primary scraper** | facebook-scraper library outdated (438 issues) | Architect |
+| 2026-02-01 | **Keep Playwright as backup** | Faster, better anti-detection, native parallel | Architect |
+| 2026-02-01 | **Browser reuse for batch scraping** | Reduces time by ~40% | Architect |
+| 2026-02-01 | **Add performance statistics** | Data-driven optimization decisions | User |
+| 2026-02-01 | **Preview Card → Redirect strategy** | Simple, legal, scalable - link to FB not replace it | User |
+| 2026-02-01 | **Store FB image URLs directly** | Phase 1 simplicity, may add thumbnails later | Architect |
+| 2026-02-01 | **Extract: post_url, posted_at, images** | Core data for rich display | User |
+| 2026-02-01 | **Continue despite ToS concerns** | Educational, non-commercial, with safeguards | User |
+
+---
+
+## ⚖️ Legal & Terms of Service
+
+### Facebook ToS Analysis
+
+| Rule | Our Approach | Risk |
+|------|--------------|------|
+| "Don't scrape" | We do, but link back to FB | MEDIUM |
+| "Don't sell data" | ✅ Non-commercial | LOW |
+| "Don't fake accounts" | ✅ Real cookies | LOW |
+| "Don't spam" | ✅ Rate limited | LOW |
+
+### Risk Mitigation Strategies
+
+1. **Always link to original** - Give FB traffic, not steal it
+2. **Rate limit requests** - 20s between pages minimum
+3. **Educational purpose** - Document as school project
+4. **No monetization** - Never sell or commercialize
+5. **Backup plan** - Admin Portal for manual posting if blocked
+
+### Consequences if Caught
+
+| Scenario | Likelihood | Impact | Recovery |
+|----------|------------|--------|----------|
+| Cookie expires | HIGH | Low | Re-export cookies |
+| Account suspended | MEDIUM | Medium | New account/cookies |
+| IP rate-limited | LOW | Low | Wait or use VPN |
+| Legal action | VERY LOW | High | Educational defense |
 
 ---
 
 ## 📅 Session History
 
-### Session 3 - February 1, 2026 (Current)
+### Session 5 - February 1, 2026 (Current)
+
+**Focus:** Data schema alignment, legal review, display strategy
+
+**Key Decisions Made:**
+1. ✅ **Display Strategy:** Preview Card → Redirect to Facebook
+2. ✅ **Image Strategy:** Store FB URLs directly (Phase 1)
+3. ✅ **Legal Assessment:** Continue with safeguards
+4. ✅ **Data Needs:** post_url, posted_at, images are CRITICAL
+
+**Simplified Data Schema Agreed:**
+```json
+{
+  "post_id": "qcu1994_abc123",
+  "title": "First 80 chars...",
+  "text": "Full content",
+  "text_preview": "First 200 chars for card",
+  "source": {
+    "id": "qcu1994",
+    "name": "QCU Main",
+    "url": "https://facebook.com/qcu1994"
+  },
+  "post_url": "https://facebook.com/.../posts/123",  // CRITICAL for redirect
+  "posted_at": "2026-01-31T12:33:00+08:00",          // CRITICAL for sorting
+  "images": ["url1", "url2"],                        // For thumbnails
+  "scraped_at": "2026-02-01T08:00:00Z",
+  "content_hash": "sha256:...",
+  "tags": [],
+  "is_pinned": false
+}
+```
+
+**Gap Analysis (What to Build Next):**
+| Priority | Feature | Current | Target |
+|----------|---------|---------|--------|
+| 🔴 1 | post_url | ❌ | Extract permalink |
+| 🔴 2 | posted_at | ❌ | Parse "Yesterday at 12:33 PM" |
+| 🔴 3 | images[] | ❌ | Extract img src URLs |
+| 🟡 4 | source.name | Uses ID | Use display name from config |
+| 🟡 5 | is_pinned | ❌ | Detect pinned posts |
+
+---
+
+### Session 4 - February 1, 2026
+
+**Focus:** Scraper implementation, testing, and viability assessment
+
+**Major Achievements:**
+1. ✅ **Selenium scraper working!** - 21.85s/page, 6 posts
+2. ✅ **Playwright scraper working!** - 14.73s/page, 5 posts (32% faster)
+3. ✅ **Performance comparison complete** - Data-driven tool selection
+4. ✅ **Firebase connected** - Database ready for uploads
+5. ✅ **Debug files cleaned up** - No clutter in data folder
+
+**Technical Decisions:**
+- Abandoned facebook-scraper library (438 open issues, outdated)
+- Selenium chosen as primary (simpler, more stable)
+- Playwright as backup (32% faster, use for scale)
+- Cookie authentication working (10 cookies loaded)
+- Changed Playwright `networkidle` → `domcontentloaded` (Facebook never becomes idle)
+
+**Performance Results:**
+| Scraper | Time/Page | Posts | Speed Difference |
+|---------|-----------|-------|------------------|
+| Selenium | 21.85s | 6 | Baseline |
+| Playwright | 14.73s | 5 | 32% faster |
+
+**Scale Projections:**
+| Pages | Selenium | Playwright |
+|-------|----------|------------|
+| 7 | 2.5 min | 1.7 min |
+| 50 | 18 min | 12 min |
+| 100 | 36 min | 24 min |
+
+**Viability Assessment:**
+- ✅ **Viable for 7 pages** - 2.5 min per run is reasonable
+- ✅ **Viable for 50 pages** - 12-18 min still acceptable for scheduled runs
+- ✅ **No dedicated server needed** - GitHub Actions (free) or local PC
+- ⚠️ **Not viable for real-time** - Minutes-long delays between scrapes
+
+**Deployment Options Evaluated:**
+| Option | Cost | Effort | Best For |
+|--------|------|--------|----------|
+| GitHub Actions | Free | Low | Scheduled runs (recommended) |
+| Local PC (Task Scheduler) | Free | Low | Personal use |
+| Cloud VM (DigitalOcean) | $5/mo | Medium | 24/7 availability |
+| Raspberry Pi | ~$50 one-time | High | Always-on, low power |
+
+**Files in Project:**
+- `src/scraper.py` - Selenium with statistics ✅
+- `src/scraper_playwright.py` - Playwright backup ✅
+- `src/database.py` - Firebase operations ✅
+- `data/last_stats.json` - Selenium performance data
+- `data/last_stats_playwright.json` - Playwright performance data
+
+**Not Yet Implemented:**
+- [ ] Post date extraction
+- [ ] Image extraction
+- [ ] Post URLs/links
+- [ ] Error recovery/retry logic
+- [ ] Rate limiting between pages
+- [ ] Cookie refresh mechanism
+- [ ] Duplicate detection
+- [ ] Firebase upload testing
+
+---
+
+### Session 3 - February 1, 2026
 
 **Focus:** Comprehensive clarifications and documentation overhaul
 
