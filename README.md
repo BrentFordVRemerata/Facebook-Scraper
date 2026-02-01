@@ -1,30 +1,55 @@
 # QCU Facebook Scraper
 
-**Status:** ✅ Working - Saves to Firebase  
+**Status:** ✅ Working (Phase 1 Complete)  
 **Last Tested:** February 1, 2026  
-**Posts Scraped:** 47 from 7 pages
+**Posts Scraped:** 47 from 7 pages in ~2.5 minutes
 
-Scrapes announcements from QCU Facebook pages and saves to Firebase.
+Scrapes announcements from QCU Facebook pages and saves to Firebase Firestore.
 
-## What Works Now
+---
 
-| Feature | Status |
-|---------|--------|
-| Scrape posts | ✅ 47 posts from 7 pages |
-| Save to Firebase | ✅ Working |
-| Performance stats | ✅ ~20s per page |
+## 🚀 Quick Start
 
-## What's Missing (TODO)
+```bash
+# 1. Activate virtual environment
+.venv\Scripts\activate
 
-| Feature | Status | Priority | Why Needed |
-|---------|--------|----------|------------|
-| Post URLs | ❌ | 🔴 High | "View on Facebook" button |
-| Post dates | ❌ | 🔴 High | Sort by time |
-| Images | ❌ | 🔴 High | Rich card display |
-| Source names | ⚠️ Uses ID | 🟡 Medium | Show "QCU Main" not "qcu1994" |
-| Tags | ❌ | 🟡 Medium | Filter by URGENT, ENROLLMENT |
+# 2. Check setup
+python test_scraper.py
 
-## Display Strategy
+# 3. Run scraper
+python main.py
+```
+
+---
+
+## 📊 Current Status
+
+### What Works ✅
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Scrape posts | ✅ | 47 posts from 7 pages |
+| Save to Firebase | ✅ | Collection: `posts` |
+| Selenium scraper | ✅ | ~20s per page |
+| Playwright backup | ✅ | ~15s per page (32% faster) |
+| Cookie auth | ✅ | 10 cookies loaded |
+
+### What's Missing ❌
+
+| Feature | Priority | Why Needed |
+|---------|----------|------------|
+| post_url | 🔴 Critical | "View on Facebook" button |
+| posted_at | 🔴 Critical | Sort posts by time |
+| images[] | 🔴 Critical | Rich card display |
+| source.name | 🟡 High | Show "QCU Main" not "qcu1994" |
+| tags | 🟡 Medium | Filter by URGENT, ENROLLMENT |
+
+---
+
+## 📱 Display Strategy
+
+Posts are displayed as preview cards that link to Facebook:
 
 ```
 ┌────────────────────────────────┐
@@ -35,91 +60,116 @@ Scrapes announcements from QCU Facebook pages and saves to Firebase.
 │                                │
 │ [THUMBNAIL IMAGE]              │
 │                                │
-│     [View on Facebook →]       │  ← Links to post_url
+│     [View on Facebook →]       │
 └────────────────────────────────┘
 ```
 
-Posts displayed as preview cards, clicking redirects to Facebook.
+---
 
-## Current Performance
+## ⚡ Performance
 
-| Scraper | Time/Page | Posts | Status |
-|---------|-----------|-------|--------|
-| Selenium | ~21s | 6-10 | ✅ Primary |
-| Playwright | ~15s | 5-10 | ✅ Backup (faster) |
+| Scraper | Time/Page | Posts | Best For |
+|---------|-----------|-------|----------|
+| Selenium | ~21s | 6-10 | Daily scraping |
+| Playwright | ~15s | 5-10 | Large batches |
 
-## Quick Start
+### Scale Estimates
+
+| Pages | Selenium | Playwright |
+|-------|----------|------------|
+| 7 | 2.5 min | 1.7 min |
+| 50 | 18 min | 12 min |
+| 100 | 36 min | 24 min |
+
+---
+
+## 🔧 Commands
 
 ```bash
-# 1. Activate virtual environment
+# Full run (all sources)
+python main.py
+
+# Single page test
+python src/scraper.py -p qcu1994 --headless
+
+# Playwright (faster)
+python src/scraper_playwright.py -p qcu1994
+
+# System check
+python test_scraper.py
+```
+
+---
+
+## 📁 Project Structure
+
+```
+Facebook-Scraper/
+├── main.py                 # Entry point - runs all sources
+├── test_scraper.py         # System health check
+├── requirements.txt        # Dependencies
+│
+├── src/
+│   ├── scraper.py          # Selenium scraper (PRIMARY)
+│   ├── scraper_playwright.py # Playwright backup (FASTER)
+│   └── database.py         # Firebase operations
+│
+├── config/
+│   ├── sources.json        # Pages to scrape
+│   ├── facebook_cookies.txt # Your FB session 🔒
+│   └── firebase-key.json   # Firebase credentials 🔒
+│
+├── data/
+│   ├── last_stats.json     # Performance data
+│   └── logs/               # (future) Log files
+│
+├── GUIDE.md                # Development guide (detailed)
+└── QCU Unified Network.md  # Architecture document
+```
+
+---
+
+## 🔧 Setup
+
+### 1. Python Environment
+
+```bash
+python -m venv .venv
 .venv\Scripts\activate
-
-# 2. Run scraper (interactive mode)
-python src/scraper.py
-
-# 3. Or run specific page
-python src/scraper.py --page qcu1994 --headless
-
-# 4. Or run all pages
-python src/scraper.py --all --headless
+pip install -r requirements.txt
 ```
 
-## Commands
-
-```bash
-# Selenium (recommended - more stable)
-python src/scraper.py                     # Interactive test
-python src/scraper.py -p qcu1994          # Single page
-python src/scraper.py --all --headless    # All sources, no browser window
-
-# Playwright (faster - use if Selenium fails)
-python src/scraper_playwright.py          # Interactive test
-python src/scraper_playwright.py -p qcu1994  # Single page
-```
-
-## Setup
-
-### 1. Facebook Cookies
-
-Export your Facebook login cookies:
+### 2. Facebook Cookies
 
 1. Install "Get cookies.txt LOCALLY" Chrome extension
 2. Go to facebook.com (logged in)
-3. Click extension → Export
+3. Export cookies
 4. Save as `config/facebook_cookies.txt`
 
-### 2. Firebase
+### 3. Firebase
 
-1. Go to [Firebase Console](https://console.firebase.google.com)
-2. Create project → Create Firestore Database (asia-southeast1)
+1. [Firebase Console](https://console.firebase.google.com) → Create project
+2. Firestore → Create Database → asia-southeast1
 3. Project Settings → Service Accounts → Generate Key
 4. Save as `config/firebase-key.json`
 
-### 3. Sources
+---
 
-Edit `config/sources.json` to add/remove pages to scrape.
+## 🎯 Target Sources
 
-## Project Structure
+| # | Page | Status |
+|---|------|--------|
+| 1 | QCU Main | ✅ 6 posts |
+| 2 | QCU Registrar | ✅ 10 posts |
+| 3 | QCU Guidance | ✅ 3 posts |
+| 4 | QCU Placement | ✅ 10 posts |
+| 5 | QCU Iskolar Council | ✅ 8 posts |
+| 6 | QCU Library | ✅ 0 posts |
+| 7 | QCU Times | ✅ 10 posts |
 
-```
-├── main.py                    # Entry point (runs all sources)
-├── test_scraper.py            # Check setup works
-├── src/
-│   ├── scraper.py             # Selenium scraper (PRIMARY)
-│   ├── scraper_playwright.py  # Playwright scraper (BACKUP)
-│   └── database.py            # Firebase operations
-├── config/
-│   ├── sources.json           # Pages to scrape
-│   ├── facebook_cookies.txt   # Your cookies (SECRET)
-│   └── firebase-key.json      # Firebase key (SECRET)
-├── data/
-│   ├── last_stats.json        # Performance stats (Selenium)
-│   └── last_stats_playwright.json  # Performance stats (Playwright)
-├── GUIDE.md                   # Development guide (detailed)
-└── QCU Unified Network.md     # Architecture document
-```
+---
 
-## Troubleshooting
+## 🔥 Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
@@ -128,15 +178,26 @@ Edit `config/sources.json` to add/remove pages to scrape.
 | Facebook blocking | Wait 1-2 hours, try again |
 | Firebase error | Check firebase-key.json exists |
 
-## Scale Estimates
+---
 
-| Pages | Selenium | Playwright |
-|-------|----------|------------|
-| 7 | 2.5 min | 1.7 min |
-| 50 | 18 min | 12 min |
-| 100 | 36 min | 24 min |
+## 📚 Documentation
 
-## Note
+| Document | Purpose |
+|----------|---------|
+| [GUIDE.md](GUIDE.md) | Detailed development guide |
+| [QCU Unified Network.md](QCU%20Unified%20Network.md) | Full architecture |
 
-⚠️ Scraping Facebook violates their ToS. Use responsibly for educational purposes only.
+---
+
+## ⚠️ Legal Notice
+
+Scraping Facebook may violate their ToS. This project is for **educational purposes only**:
+- Non-commercial use
+- Links back to original posts
+- Rate-limited to avoid spam
+- No data resale
+
+---
+
+*Phase 1 complete. Next: Extract post URLs, dates, and images.*
 

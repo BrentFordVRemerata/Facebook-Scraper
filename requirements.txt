@@ -1,10 +1,30 @@
-# Core dependencies
-selenium>=4.15.0
-webdriver-manager>=4.0.0
-firebase-admin>=6.0.0
-beautifulsoup4>=4.12.0
-requests>=2.31.0
-python-dotenv>=1.0.0
+# QCU Facebook Scraper - Dependencies
+# Last updated: February 1, 2026
+# Python version: 3.14
 
-# Alternative scraper (faster, better for scale)
-playwright>=1.40.0
+# ===========================================
+# Core Dependencies (Required)
+# ===========================================
+
+# Primary scraper - browser automation
+selenium>=4.40.0
+webdriver-manager>=4.0.2
+
+# Firebase - database operations
+firebase-admin>=7.1.0
+
+# ===========================================
+# Optional Dependencies
+# ===========================================
+
+# Backup scraper - faster, use for scale
+playwright>=1.58.0
+
+# HTML parsing (if needed for advanced extraction)
+beautifulsoup4>=4.14.0
+
+# HTTP requests (used by firebase-admin)
+requests>=2.32.0
+
+# Environment variables (optional)
+python-dotenv>=1.2.0
