@@ -17,18 +17,26 @@ secrets/
 # ----------------
 config/firebase_config.json
 config/firebase-*.json
+config/firebase-key.json
 config/serviceAccount*.json
+*firebase*.json
+*serviceAccount*.json
+serviceAccountKey.json
+*.key.json
 
 # ----------------
-# Facebook Cookies (CRITICAL - Contains your login session!)
+# Facebook Cookies & Sessions (CRITICAL - Never commit!)
 # ----------------
 config/cookies.txt
 config/facebook_cookies.txt
 config/*cookies*
 *.cookies.txt
+cookies.txt
+*.cookie
+*.cookies
 
 # ----------------
-# Python
+# Python & Bytecode
 # ----------------
 __pycache__/
 *.py[cod]
@@ -75,24 +83,38 @@ ENV/
 *.sublime-project
 
 # ----------------
-# Testing
+# Testing & Coverage
 # ----------------
 .pytest_cache/
+tests/.pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 .tox/
 .nox/
 
 # ----------------
-# Data & Logs (Local)
+# Data, Dumps & Logs (Local artifacts)
 # ----------------
 data/logs/
 data/*.sqlite
+data/*.sqlite3
 data/*.db
 data/cache/
 data/scraper_state.json
 data/.lock
+data/last_stats*.json
+data/*.html
+data/*.txt
+data/debug*
 *.log
+geckodriver.log
+chromedriver.log
+
+# Playwright artifacts
+playwright-report/
+test-results/
+.playwright/
 
 # ----------------
 # OS Files
