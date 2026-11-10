@@ -146,6 +146,19 @@ class TestParser(unittest.TestCase):
         posts_limited = parse_posts_from_text(raw_stream, "qcu", "QCU", max_posts=1, min_block_len=40)
         self.assertEqual(len(posts_limited), 1)
 
+    def test_legacy_post_id_generation(self):
+        from src.parser import generate_legacy_post_id
+        block = "REGISTRAR ADVISORY: Graduation requirements must be submitted by Monday."
+        legacy_id = generate_legacy_post_id("qcu1994", block)
+        self.assertTrue(legacy_id.startswith("qcu1994_"))
+        # MD5 digest prefix length is 8 hex chars
+        self.assertEqual(len(legacy_id.split("_")[1]), 8)
+
+        # Verify legacy_post_id is present in build_post_record
+        record = build_post_record("qcu1994", "QCU Main", block)
+        self.assertIn("legacy_post_id", record)
+        self.assertEqual(record["legacy_post_id"], legacy_id)
+
 
 if __name__ == "__main__":
     unittest.main()

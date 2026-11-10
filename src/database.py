@@ -9,7 +9,7 @@ import os
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Set
+from typing import Optional, Dict, Any, List, Set, Tuple
 
 from src.config import get_firebase_key_path, get_firestore_collection, get_project_root
 
@@ -133,6 +133,22 @@ def post_exists(post_id: str, collection: Optional[str] = None) -> bool:
         return False
 
 
+def check_existing_post(
+    post_id: str,
+    legacy_post_id: Optional[str] = None,
+    collection: Optional[str] = None
+) -> bool:
+    """
+    Check if a post already exists under its current SHA-256 ID or historical MD5 ID.
+    Supports seamless migration without duplicating historical records.
+    """
+    if post_exists(post_id, collection=collection):
+        return True
+    if legacy_post_id and post_exists(legacy_post_id, collection=collection):
+        return True
+    return False
+
+
 def get_existing_hashes(
     source_id: Optional[str] = None,
     limit: int = 500,
@@ -140,6 +156,10 @@ def get_existing_hashes(
 ) -> Set[str]:
     """
     Retrieve known content_hash values from Firestore for duplicate detection.
+    
+    NOTE ON LIMIT: Firestore bills per document read (free tier: 50,000/day).
+    The query limit avoids downloading massive collections on every scrape run while
+    inspecting the most recent documents.
     """
     client = get_firestore_client()
     if client is None:
@@ -150,7 +170,8 @@ def get_existing_hashes(
         query = client.collection(target_collection)
         if source_id:
             query = query.where("source_id", "==", source_id)
-        query = query.limit(limit)
+        if limit and limit > 0:
+            query = query.limit(limit)
         
         docs = query.stream()
         hashes: Set[str] = set()
@@ -167,10 +188,17 @@ def get_existing_hashes(
 
 def save_posts_batch(
     posts: List[Any],
-    collection: Optional[str] = None
+    collection: Optional[str] = None,
+    cross_source_dedup: bool = False
 ) -> Dict[str, int]:
     """
-    Batch save multiple post records into Firestore with deduplication.
+    Batch save multiple post records into Firestore with deduplication and migration support.
+    
+    Args:
+        posts: List of post dictionaries or ScrapedPost instances
+        collection: Target Firestore collection (defaults to FIRESTORE_COLLECTION or 'posts')
+        cross_source_dedup: If True, duplicate content across different sources is discarded.
+                            If False (default), each source retains its announcements.
     
     Returns:
         dict: {"saved": int, "skipped": int, "errors": int}
@@ -183,29 +211,50 @@ def save_posts_batch(
         return results
         
     target_collection = collection or get_firestore_collection()
+    
+    # Track existing content hashes
     existing_hashes = get_existing_hashes(collection=target_collection)
     
     seen_in_batch: Set[str] = set()
+    seen_source_hashes: Set[Tuple[str, str]] = set()
     
     try:
         batch = client.batch()
         batch_count = 0
+        current_batch_items = 0
         
         for item in posts:
             post_data = item.to_dict() if hasattr(item, 'to_dict') else dict(item)
             
             post_id = post_data.get('post_id')
+            legacy_post_id = post_data.get('legacy_post_id')
+            source_id = str(post_data.get('source_id', ''))
             content_hash = post_data.get('content_hash')
             
             if not post_id:
                 results["skipped"] += 1
                 continue
                 
-            # Deduplicate against batch itself or against existing Firestore entries
+            # Deduplicate against current batch
             if post_id in seen_in_batch:
                 results["skipped"] += 1
                 continue
-            if content_hash and content_hash in existing_hashes:
+                
+            if content_hash:
+                if cross_source_dedup:
+                    if content_hash in existing_hashes:
+                        results["skipped"] += 1
+                        continue
+                else:
+                    source_key = (source_id, content_hash)
+                    if source_key in seen_source_hashes:
+                        results["skipped"] += 1
+                        continue
+                    seen_source_hashes.add(source_key)
+
+            # Migration check: verify if document already exists under legacy post_id
+            if legacy_post_id and post_exists(legacy_post_id, collection=target_collection):
+                logger.info("Skipping post %s; already exists under legacy ID %s", post_id, legacy_post_id)
                 results["skipped"] += 1
                 continue
                 
@@ -217,23 +266,32 @@ def save_posts_batch(
             post_data['updated_at'] = datetime.now(timezone.utc).isoformat()
             batch.set(doc_ref, post_data)
             batch_count += 1
+            current_batch_items += 1
             
             # Firestore limit: 500 operations per batch
             if batch_count >= 500:
-                batch.commit()
-                results["saved"] += batch_count
+                try:
+                    batch.commit()
+                    results["saved"] += batch_count
+                except Exception as commit_err:
+                    logger.error("Firestore batch commit failed: %s", commit_err)
+                    results["errors"] += batch_count
                 batch = client.batch()
                 batch_count = 0
                 
         if batch_count > 0:
-            batch.commit()
-            results["saved"] += batch_count
+            try:
+                batch.commit()
+                results["saved"] += batch_count
+            except Exception as commit_err:
+                logger.error("Firestore batch commit failed: %s", commit_err)
+                results["errors"] += batch_count
             
-        logger.info("Batch save: %d saved, %d skipped, %d errors",
+        logger.info("Batch save complete: %d saved, %d skipped, %d errors",
                     results["saved"], results["skipped"], results["errors"])
     except Exception as e:
-        logger.error("Error during Firestore batch commit: %s", e)
-        results["errors"] += 1
+        logger.error("Unexpected error during Firestore batch operations: %s", e)
+        results["errors"] += (len(posts) - results["saved"] - results["skipped"])
         
     return results
 

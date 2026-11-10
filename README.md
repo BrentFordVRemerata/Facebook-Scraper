@@ -1,14 +1,14 @@
 # QCU Facebook Announcement Scraper
 
-> **Project Classification:** Academic Proof of Concept / University Capstone Prototype  
+> **Project Classification:** Academic Proof of Concept / University-Related Project Prototype  
 > **Status:** ⚠️ Inactive / Historical Research Prototype (Last developed: February 1, 2026; Recovered & Audited: November 2026)  
-> **Target Audience:** Quezon City University (QCU) Capstone Reviewers, Educational Researchers, and Open-Source Auditors  
+> **Target Audience:** Quezon City University (QCU) Project Reviewers, Educational Researchers, and Open-Source Auditors  
 
 ---
 
 ## 📌 Executive Summary
 
-The **QCU Facebook Announcement Scraper** was initiated as part of a university student project aimed at solving announcement fragmentation at Quezon City University (QCU). Official campus announcements are distributed across more than ten distinct Facebook Pages and Groups (e.g., Main Campus, Office of the Registrar, Guidance and Placement Offices, Student Councils, and Campus Journalism outlets), causing students to frequently miss urgent academic advisories.
+The **QCU Facebook Announcement Scraper** was initiated as part of a university-related student project aimed at solving announcement fragmentation at Quezon City University (QCU). Official campus announcements are distributed across more than ten distinct Facebook Pages and Groups (e.g., Main Campus, Office of the Registrar, Guidance and Placement Offices, Student Councils, and Campus Journalism outlets), causing students to frequently miss urgent academic advisories.
 
 The backend prototype in this repository explored automated collection of public page announcements using browser automation (Selenium and Playwright) and storage in Google Firebase Firestore to serve a prospective student mobile feed.
 
@@ -25,7 +25,8 @@ To ensure transparency and prevent misrepresentation of capabilities, the projec
 | **Selenium Scraper** (`src/scraper.py`) | **Historically Implemented & Tested** | Verified locally in Feb 2026; collects rendered text blocks via headless Chrome. Requires Chrome & chromedriver. |
 | **Playwright Scraper** (`src/scraper_playwright.py`) | **Historically Implemented & Tested** | Verified locally in Feb 2026; alternative browser engine using `domcontentloaded` waits. |
 | **Firestore Batch Persistence** (`src/database.py`) | **Historically Implemented & Tested** | Batches writes up to 500 documents with SHA-256 content deduplication into the `posts` collection. |
-| **Automated Unit Test Suite** (`tests/`) | **Tested & Verified (Nov 2026)** | 23 passing offline unit tests covering text extraction, SHA-256 deduplication, config validation, and mock database persistence. |
+| **Offline Fixture Pipeline** (`main.py --offline`) | **Tested & Verified (Nov 2026)** | 100% offline pipeline execution using local text fixtures (`tests/fixtures/sample_page_text.txt`) with zero browser launch, zero network access, and zero external credentials. |
+| **Automated Unit Test Suite** (`tests/`) | **Tested & Verified (Nov 2026)** | 31 passing offline unit tests covering text extraction, SHA-256 deduplication, legacy post ID migration, config validation, and mock database persistence. |
 | **Live Facebook Scraping (Current)** | **Implemented but Not Currently Verified** | Facebook frequently alters its DOM tree, class naming obfuscations, and anti-scraping defenses. Historical scraping routines may encounter login gates, layout shifts, or bot detection. |
 | **Cookie Authentication** (`config/facebook_cookies.txt`) | **Implemented but Not Currently Verified** | Netscape cookie injection supported in code, but carries critical session-invalidation and account suspension risks. |
 | **Post Permalinks (`post_url`)** | **Incomplete / Non-functional** | **Not extracted.** The scraper collects raw text blocks and does not reliably identify permalink anchor tags. |
@@ -54,11 +55,11 @@ To ensure transparency and prevent misrepresentation of capabilities, the projec
 │  - Full text SHA-256 hashing    │
 └────────────────┬────────────────┘
                  │
-                 ▼ Normalized Post Schema
+                 ▼ Normalized Post Schema (with legacy ID migration tracking)
 ┌─────────────────────────────────┐
 │    Firebase Admin SDK Batch     │
-│  - In-batch deduplication       │
-│  - Existing hash verification   │
+│  - Per-source deduplication     │
+│  - Legacy post ID verification  │
 └────────────────┬────────────────┘
                  │
                  ▼
@@ -68,13 +69,14 @@ To ensure transparency and prevent misrepresentation of capabilities, the projec
 └─────────────────────────────────┘
 ```
 
-### Standardized Post Schema
+### Standardized Post Schema & Migration Compatibility
 
 Each processed announcement record conforms to the following schema:
 
 ```json
 {
   "post_id": "qcu1994_a1b2c3d4e5f6",
+  "legacy_post_id": "qcu1994_42ef9169",
   "source_id": "qcu1994",
   "source_name": "QCU Main",
   "title": "ADVISORY ON MIDTERM EXAMINATIONS",
@@ -86,6 +88,14 @@ Each processed announcement record conforms to the following schema:
 }
 ```
 
+#### Migration Note on Post IDs
+Original prototype commits generated post IDs using an 8-character MD5 hash of only the first 100 characters (`f"{source_id}_{md5(block[:100])[:8]}"`), which caused collisions when announcements shared university letterheads. The updated parser generates deterministic 12-character SHA-256 IDs over the full normalized text (`f"{source_id}_{sha256(text)[:12]}"`). 
+
+To prevent duplicating existing documents when running against a database populated by the legacy scraper, `src/parser.py` records `legacy_post_id`, and `src/database.py` checks for the presence of the legacy ID before writing.
+
+#### Cross-Source Deduplication
+By default (`cross_source_dedup=False`), deduplication is scoped per-source `(source_id, content_hash)`. This ensures each campus unit (e.g. Registrar vs Student Council) retains its announcement in its respective feed even if both post identical text. Setting `cross_source_dedup=True` discards cross-source reshares globally.
+
 ---
 
 ## ⚠️ Legal, Ethical & Platform Compliance Disclosures
@@ -93,7 +103,7 @@ Each processed announcement record conforms to the following schema:
 ### 1. Meta Terms of Service (ToS)
 Section 3.2.3 of Meta's Terms of Service explicitly states that users must not *"access or collect data from our Products using automated means (without our prior permission) or attempt to access data you do not have permission to access."*
 
-Historical documentation in this project suggested that non-commercial educational use or linking back to Facebook provides legal exemption. **This is inaccurate.** While legal precedents (such as *hiQ Labs v. LinkedIn*) have recognized that scraping public web data does not constitute unauthorized computer access under the US CFAA, platforms enforce contractual Terms of Service and technical anti-bot countermeasures vigorously.
+Historical documentation in this project suggested that non-commercial educational use or linking back to Facebook provides legal exemption. **This is inaccurate.** While legal precedents (such as *hiQ Labs v. LinkedIn*) recognized that scraping public web data does not violate the US Computer Fraud and Abuse Act (CFAA), platforms enforce contractual Terms of Service and technical anti-bot countermeasures vigorously.
 
 ### 2. Account Security & Session Risks
 Automating Facebook browsing using personal accounts or session cookies (`c_user`, `xs`) presents severe security and privacy hazards:
@@ -109,11 +119,11 @@ Early project notes suggested scaling sequential scraping to 50–100 pages. In 
 
 ## 🛠️ Local Environment & Reproducible Setup
 
-Setup and testing can be completed **completely offline without live Facebook accounts or Firebase credentials**.
+Setup and testing can be completed **completely offline without live Facebook accounts, browser drivers, or Firebase credentials**.
 
 ### Prerequisites
 - Python 3.10, 3.11, or 3.12
-- Google Chrome & chromedriver (if running Selenium live)
+- Google Chrome & chromedriver (only required if running live Selenium scraping)
 
 ### 1. Clone & Set Up Virtual Environment
 
@@ -134,11 +144,11 @@ Copy `.env.example` to `.env`:
 cp .env.example .env
 ```
 
-Default settings operate in offline dry-run mode without external credentials.
+`src/config.py` automatically detects and parses `.env` on startup (using `python-dotenv` if installed, with a built-in fallback parser if not).
 
 ### 3. Run Automated Unit Tests
 
-Run the offline unit test suite (no external services or network required):
+Run the offline unit test suite (31 tests, completes in ~0.01s with zero network access):
 
 ```bash
 python3 -m unittest discover -s tests -p "test_*.py" -v
@@ -152,14 +162,30 @@ Validate local configuration syntax and dependency presence:
 python3 test_scraper.py
 ```
 
-### 5. Execute Pipeline in Safe Dry-Run Mode
+### 5. Execute Pipeline Modes
 
-Run the ingestion pipeline in dry-run mode (scrapes without saving to Firebase):
+The CLI supports two distinct operational modes:
+
+#### A. Genuine Offline Fixture Mode (Zero Browser, Zero Network)
+Ideal for testing parsing, deduplication, and schema validation safely:
 
 ```bash
-# Test a single page in headless mode without saving to Firebase
-python3 main.py --source qcu1994 --name "QCU Main" --max-posts 3 --dry-run
+# Parses local announcement fixture without launching browsers or accessing the internet
+python3 main.py --offline --dry-run
 ```
+
+#### B. Live Scraping Mode (Requires Browser & Internet Access)
+Runs browser automation against public Facebook pages:
+
+```bash
+# Scrape live pages in headless mode without saving to Firebase
+python3 main.py --source qcu1994 --name "QCU Main" --max-posts 3 --dry-run
+
+# Scrape all configured sources and persist to Firebase (requires config/firebase-key.json)
+python3 main.py
+```
+
+*Note on `--dry-run`: `--dry-run` prevents writing documents to Firestore. When used alone, it still launches browser automation against live web targets. To avoid all network and browser calls, always use `--offline`.*
 
 ---
 
@@ -185,7 +211,7 @@ Before applying an open-source license, the repository owner and Quezon City Uni
 | **Unlicensed (Proprietary)** | No open-source permissions granted. Default copyright law applies. | Third parties may view code on GitHub, but cannot reuse, modify, or distribute it without explicit permission. | **Default state.** Retains exclusive intellectual property rights. |
 
 ### University Intellectual Property Considerations
-At most academic institutions (including Quezon City University), software developed as part of academic coursework or capstone requirements may be subject to institutional intellectual property policies:
+At most academic institutions (including Quezon City University), software developed as part of academic coursework or university-related project requirements may be subject to institutional intellectual property policies:
 - If university resources, faculty guidance, or institutional logos were used, institutional IP agreements may dictate whether student work can be licensed under permissive open-source licenses.
 - Co-authors or team members who contributed code hold joint copyright unless explicitly assigned.
 - **Decision:** No license is automatically added in this maintenance update. The repository maintainer should confirm with team members and academic advisers before selecting a license.
@@ -196,10 +222,14 @@ At most academic institutions (including Quezon City University), software devel
 
 ```
 Facebook-Scraper/
-├── main.py                     # Central execution CLI
+├── .github/
+│   └── workflows/
+│       └── test.yml            # Minimal GitHub Actions CI workflow (offline unit tests)
+│
+├── main.py                     # Central execution CLI (supports --offline fixture mode)
 ├── test_scraper.py             # Offline configuration & environment diagnostic check
-├── requirements.txt            # Python dependencies (pinned to stable ranges)
-├── .env.example                # Environment variables template
+├── requirements.txt            # Python dependencies (version ranges for Python 3.10-3.12+)
+├── .env.example                # Environment variables template (auto-loaded by src/config.py)
 ├── .gitignore                  # Comprehensive secrets & artifact exclusion rules
 ├── SECURITY.md                 # Security policy & incident audit disclosures
 ├── README.md                   # Project documentation & status matrix
@@ -213,24 +243,26 @@ Facebook-Scraper/
 │
 ├── src/
 │   ├── __init__.py
-│   ├── config.py               # Centralized configuration & path resolver
+│   ├── config.py               # Centralized configuration, .env loader & path resolver
 │   ├── parser.py               # Deterministic text block extraction & SHA-256 hashing
-│   ├── database.py             # Firebase Firestore batch persistence
+│   ├── database.py             # Firebase Firestore batch persistence & deduplication
 │   ├── scraper.py              # Selenium-based page scraper
 │   └── scraper_playwright.py   # Playwright-based page scraper
 │
 └── tests/
     ├── __init__.py
+    ├── fixtures/
+    │   └── sample_page_text.txt # Local announcement fixture for offline pipeline runs
     ├── test_parser.py          # Unit tests for text parsing & collision prevention
-    ├── test_config.py          # Unit tests for config loading & path resolution
-    ├── test_database.py        # Unit tests for Firestore batch deduplication
-    └── test_main.py            # Unit tests for CLI pipeline parameter propagation
+    ├── test_config.py          # Unit tests for config loading, .env parsing & paths
+    ├── test_database.py        # Unit tests for Firestore batch deduplication & legacy IDs
+    └── test_main.py            # Unit tests for CLI pipeline parameter propagation & offline mode
 ```
 
 ---
 
 ## 👥 Contributors & Academic Context
 
-- **Platform Technologies Student Capstone Group**
+- **Platform Technologies Student Project Group**
 - **Lead Developer:** Brent Ford V. Remerata
 - **Institution:** Quezon City University (QCU), Quezon City, Philippines

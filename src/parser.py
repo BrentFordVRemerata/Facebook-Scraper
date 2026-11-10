@@ -118,6 +118,16 @@ def extract_title_from_block(block: str, max_length: int = 80) -> str:
     return first_line[:max_length].rstrip() + "..."
 
 
+def generate_legacy_post_id(source_id: str, block: str) -> str:
+    """
+    Generate historical 8-character MD5 post ID (used in original Feb 2026 prototype).
+    Maintained for database migration checks and backwards compatibility.
+    """
+    clean_source = re.sub(r'[^a-zA-Z0-9_-]', '_', source_id)
+    legacy_hash = hashlib.md5(block[:100].encode('utf-8')).hexdigest()[:8]
+    return f"{clean_source}_{legacy_hash}"
+
+
 def build_post_record(
     source_id: str,
     source_name: str,
@@ -129,11 +139,13 @@ def build_post_record(
     """
     content_hash = generate_content_hash(block)
     post_id = generate_post_id(source_id, content_hash)
+    legacy_post_id = generate_legacy_post_id(source_id, block)
     title = extract_title_from_block(block)
     timestamp = scraped_at or datetime.now(timezone.utc).isoformat()
     
     return {
         "post_id": post_id,
+        "legacy_post_id": legacy_post_id,
         "source_id": source_id,
         "source_name": source_name or source_id,
         "title": title,

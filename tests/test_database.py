@@ -152,6 +152,59 @@ class TestDatabase(unittest.TestCase):
         self.assertIn("beta", hashes)
         self.assertEqual(len(hashes), 2)
 
+    def test_cross_source_dedup_behavior(self):
+        mock_client = MockFirestoreClient()
+        set_firestore_client(mock_client)
+
+        posts = [
+            {"post_id": "main_p1", "source_id": "qcu_main", "text": "Memo", "content_hash": "same_hash"},
+            {"post_id": "council_p1", "source_id": "qcu_council", "text": "Memo", "content_hash": "same_hash"},
+        ]
+
+        # By default (cross_source_dedup=False), each source keeps its own announcement
+        res_per_source = save_posts_batch(posts, cross_source_dedup=False)
+        self.assertEqual(res_per_source["saved"], 2)
+
+        # Clear mock store
+        mock_client.collections.clear()
+
+        # With cross_source_dedup=True, second source is skipped
+        res_cross = save_posts_batch(posts, cross_source_dedup=True)
+        self.assertEqual(res_cross["saved"], 1)
+        self.assertEqual(res_cross["skipped"], 1)
+
+    def test_legacy_post_id_migration_skip(self):
+        mock_client = MockFirestoreClient()
+        set_firestore_client(mock_client)
+
+        # Pre-populate legacy document in Firestore
+        mock_client.collection("posts").documents["qcu1994_42ef9169"] = {"text": "Old Post"}
+
+        # Incoming post has new SHA-256 ID, but also references legacy_post_id
+        new_post = {
+            "post_id": "qcu1994_newsha256id",
+            "legacy_post_id": "qcu1994_42ef9169",
+            "text": "Old Post",
+            "content_hash": "some_hash"
+        }
+
+        result = save_posts_batch([new_post])
+        self.assertEqual(result["skipped"], 1, "Should skip post because it already exists under legacy ID")
+        self.assertEqual(result["saved"], 0)
+
+    def test_batch_commit_error_handling(self):
+        mock_client = MockFirestoreClient()
+        # Create a batch whose commit() raises an exception
+        broken_batch = MagicMock()
+        broken_batch.commit.side_effect = RuntimeError("Firestore unavailable")
+        mock_client.batch = MagicMock(return_value=broken_batch)
+        set_firestore_client(mock_client)
+
+        posts = [{"post_id": "p1", "text": "Post 1", "content_hash": "h1"}]
+        result = save_posts_batch(posts)
+        self.assertGreater(result["errors"], 0)
+        self.assertEqual(result["saved"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

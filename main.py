@@ -9,10 +9,12 @@ import sys
 import argparse
 import logging
 from datetime import datetime
-from typing import List, Dict, Any
+from pathlib import Path
+from typing import List, Dict, Any, Optional
 
-from src.config import load_sources, load_settings
+from src.config import load_sources, load_settings, get_fixture_path
 from src.database import initialize_firebase, save_posts_batch
+from src.parser import parse_posts_from_text
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,12 +23,56 @@ logging.basicConfig(
 logger = logging.getLogger("main")
 
 
+def run_offline_fixture_pipeline(
+    sources: List[Dict[str, Any]],
+    fixture_path: Optional[Path] = None,
+    override_max_posts: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """
+    Execute pipeline in genuine offline mode using local text fixtures.
+    Zero browser launch, zero network access, zero external credentials.
+    """
+    path = fixture_path or get_fixture_path()
+    if not path.exists():
+        logger.error("Fixture file not found at: %s", path)
+        print(f"❌ Fixture file missing: {path}")
+        return []
+
+    print(f"📄 Loading offline fixture from: {path.name}")
+    raw_text = path.read_text(encoding="utf-8")
+
+    all_posts = []
+    for i, source in enumerate(sources, 1):
+        source_id = source.get('id', '')
+        source_name = source.get('name', source_id)
+        limit = override_max_posts if override_max_posts is not None else source.get('posts_to_fetch', 5)
+
+        print(f"\n[{i}/{len(sources)}] Offline Parsing: {source_name} (@{source_id}) | Limit: {limit}")
+        print("-" * 50)
+
+        posts = parse_posts_from_text(
+            raw_text=raw_text,
+            source_id=source_id,
+            source_name=source_name,
+            max_posts=limit
+        )
+
+        for p in posts:
+            print(f"   ✅ [Fixture] {p['title'][:60]}...")
+        print(f"   ✨ Extracted {len(posts)} posts from offline fixture.")
+        all_posts.extend(posts)
+
+    return all_posts
+
+
 def run_pipeline(
     sources: List[Dict[str, Any]],
     use_playwright: bool = False,
     headless: bool = True,
     dry_run: bool = False,
-    override_max_posts: int = None,
+    offline: bool = False,
+    fixture_path: Optional[Path] = None,
+    override_max_posts: Optional[int] = None,
     save_debug: bool = False
 ) -> int:
     """Execute scraping pipeline across enabled sources."""
@@ -34,28 +80,16 @@ def run_pipeline(
     print("=" * 60)
     print("QCU FACEBOOK ANNOUNCEMENT SCRAPER")
     print("=" * 60)
-    print(f"Backend:     {'Playwright' if use_playwright else 'Selenium'}")
-    print(f"Headless:    {headless}")
-    print(f"Dry Run:     {dry_run}")
+    print(f"Mode:        {'OFFLINE FIXTURE (No network/browser)' if offline else 'LIVE SCRAPING'}")
+    if not offline:
+        print(f"Backend:     {'Playwright' if use_playwright else 'Selenium'}")
+        print(f"Headless:    {headless}")
+    print(f"Dry Run:     {dry_run} (Skip Firestore write: {dry_run})")
     print(f"Sources:     {len(sources)}")
     print("=" * 60)
     print()
 
-    # Load appropriate scraper module
-    if use_playwright:
-        from src.scraper_playwright import scrape_page, PLAYWRIGHT_AVAILABLE
-        if not PLAYWRIGHT_AVAILABLE:
-            print("❌ Playwright is not installed.")
-            print("   Install: pip install playwright && playwright install chromium")
-            return 1
-    else:
-        from src.scraper import scrape_page, SELENIUM_AVAILABLE
-        if not SELENIUM_AVAILABLE:
-            print("❌ Selenium is not installed.")
-            print("   Install: pip install selenium webdriver-manager")
-            return 1
-
-    # Connect to Firebase if not dry run
+    # Determine database persistence
     use_firebase = False
     if not dry_run:
         print("🔥 Connecting to Firebase Firestore...")
@@ -63,51 +97,75 @@ def run_pipeline(
             print("✅ Firebase connected successfully.")
             use_firebase = True
         else:
-            print("⚠️  Firebase key missing or invalid. Running in local dry-run mode (no save).")
+            print("⚠️  Firebase key missing or invalid. Running without saving.")
             use_firebase = False
     else:
-        print("ℹ️  Dry-run mode enabled: skipping Firebase connection.")
+        print("ℹ️  Dry-run active: skipping Firestore document writes.")
 
     all_posts: List[Dict[str, Any]] = []
     failed_sources: List[str] = []
 
-    for i, source in enumerate(sources, 1):
-        page_id = source.get('id')
-        page_name = source.get('name', page_id)
-        max_posts = override_max_posts if override_max_posts is not None else source.get('posts_to_fetch', 5)
+    if offline:
+        all_posts = run_offline_fixture_pipeline(
+            sources=sources,
+            fixture_path=fixture_path,
+            override_max_posts=override_max_posts
+        )
+    else:
+        # Load appropriate browser scraper module
+        if use_playwright:
+            from src.scraper_playwright import scrape_page, PLAYWRIGHT_AVAILABLE
+            if not PLAYWRIGHT_AVAILABLE:
+                print("❌ Playwright is not installed.")
+                print("   Install: pip install playwright && playwright install chromium")
+                return 1
+        else:
+            from src.scraper import scrape_page, SELENIUM_AVAILABLE
+            if not SELENIUM_AVAILABLE:
+                print("❌ Selenium is not installed.")
+                print("   Install: pip install selenium webdriver-manager")
+                return 1
 
-        print(f"\n[{i}/{len(sources)}] Source: {page_name} (@{page_id}) | Limit: {max_posts}")
-        print("-" * 50)
+        for i, source in enumerate(sources, 1):
+            page_id = source.get('id')
+            page_name = source.get('name', page_id)
+            max_posts = override_max_posts if override_max_posts is not None else source.get('posts_to_fetch', 5)
 
-        try:
-            # FIX: Properly pass max_posts, page_name, headless, and save_debug
-            posts, stats = scrape_page(
-                page_id=page_id,
-                page_name=page_name,
-                max_posts=max_posts,
-                headless=headless,
-                show_stats=True,
-                save_debug=save_debug
-            )
+            print(f"\n[{i}/{len(sources)}] Source: {page_name} (@{page_id}) | Limit: {max_posts}")
+            print("-" * 50)
 
-            if stats and stats.success:
-                all_posts.extend(posts)
-                print(f"   ✨ Extracted {len(posts)} posts in {stats.time_total:.1f}s")
-            else:
-                err_msg = stats.error if stats else "Unknown error"
-                print(f"   ⚠️  Failed to scrape @{page_id}: {err_msg}")
+            try:
+                posts, stats = scrape_page(
+                    page_id=page_id,
+                    page_name=page_name,
+                    max_posts=max_posts,
+                    headless=headless,
+                    show_stats=True,
+                    save_debug=save_debug
+                )
+
+                if stats and stats.success:
+                    all_posts.extend(posts)
+                    print(f"   ✨ Extracted {len(posts)} posts in {stats.time_total:.1f}s")
+                else:
+                    err_msg = stats.error if stats else "Unknown error"
+                    print(f"   ⚠️  Failed to scrape @{page_id}: {err_msg}")
+                    failed_sources.append(page_id)
+
+            except Exception as e:
+                logger.exception("Unexpected error processing source %s: %s", page_id, e)
+                print(f"   ❌ Error: {e}")
                 failed_sources.append(page_id)
 
-        except Exception as e:
-            logger.exception("Unexpected error processing source %s: %s", page_id, e)
-            print(f"   ❌ Error: {e}")
-            failed_sources.append(page_id)
-
     # Save to Firestore
+    db_errors = 0
     if all_posts and use_firebase:
         print("\n💾 Persisting collected posts to Firestore...")
         result = save_posts_batch(all_posts)
-        print(f"   ✅ Saved: {result['saved']} | Skipped: {result['skipped']} | Errors: {result['errors']}")
+        db_errors = result.get("errors", 0)
+        print(f"   ✅ Saved: {result['saved']} | Skipped: {result['skipped']} | Errors: {db_errors}")
+        if db_errors > 0:
+            print(f"   ❌ Encountered {db_errors} database write error(s).")
     elif all_posts and not use_firebase:
         print(f"\nℹ️  Collected {len(all_posts)} posts (unsaved due to dry-run or unconfigured Firebase).")
 
@@ -118,20 +176,28 @@ def run_pipeline(
     print("=" * 60)
     print(f"Total posts collected: {len(all_posts)}")
     print(f"Failed sources:        {len(failed_sources)} ({', '.join(failed_sources) if failed_sources else 'None'})")
+    print(f"Database write errors: {db_errors}")
     print(f"Completed at:          {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
 
-    return 0 if not failed_sources else 2
+    # Exit status reflects scraping and persistence health
+    if db_errors > 0:
+        return 3
+    if failed_sources:
+        return 2
+    return 0
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="QCU Facebook Scraper Runner")
-    parser.add_argument("--source", "-s", help="Scrape a single page ID instead of all configured sources")
+    parser.add_argument("--source", "-s", help="Process a single page ID instead of all configured sources")
     parser.add_argument("--name", "-n", default="", help="Display name for single source")
     parser.add_argument("--playwright", action="store_true", help="Use Playwright backend instead of Selenium")
     parser.add_argument("--no-headless", action="store_false", dest="headless", default=True, help="Run browser in visible mode")
     parser.add_argument("--max-posts", "-m", type=int, default=None, help="Override posts_to_fetch limit")
-    parser.add_argument("--dry-run", action="store_true", help="Scrape without persisting to Firebase")
+    parser.add_argument("--dry-run", action="store_true", help="Run pipeline without writing documents to Firebase")
+    parser.add_argument("--offline", action="store_true", help="Run completely offline using local fixtures (zero browser launch, zero network calls)")
+    parser.add_argument("--fixture", type=Path, default=None, help="Custom text fixture file path for offline mode")
     parser.add_argument("--save-debug", action="store_true", help="Save raw HTML and text dumps to data/ (may include session data)")
 
     args = parser.parse_args()
@@ -155,6 +221,8 @@ def main() -> int:
         use_playwright=args.playwright,
         headless=args.headless,
         dry_run=args.dry_run,
+        offline=args.offline,
+        fixture_path=args.fixture,
         override_max_posts=args.max_posts,
         save_debug=args.save_debug
     )

@@ -1,8 +1,8 @@
 """
 Configuration Loader and Path Resolver
 ======================================
-Harmonizes settings, source configurations, credentials, and cookie paths
-across the application.
+Harmonizes settings, source configurations, credentials, environment variables,
+and cookie paths across the application.
 """
 
 import json
@@ -17,6 +17,52 @@ logger = logging.getLogger(__name__)
 def get_project_root() -> Path:
     """Return the repository root directory."""
     return Path(__file__).resolve().parent.parent
+
+
+def load_env_file(dotenv_path: Optional[Path] = None, override: bool = False) -> bool:
+    """
+    Load environment variables from a .env file.
+    
+    Tries python-dotenv first if available; otherwise falls back to a clean
+    key-value parser for lines formatted as KEY=VALUE or KEY="VALUE".
+    
+    Returns True if a .env file was located and processed, False otherwise.
+    """
+    path = dotenv_path or (get_project_root() / ".env")
+    if not path.exists():
+        return False
+
+    # Attempt loading with python-dotenv
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(path, override=override)
+        return True
+    except ImportError:
+        pass
+
+    # Built-in fallback parser
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip()
+                v = v.strip()
+                # Strip wrapping single or double quotes
+                if len(v) >= 2 and ((v[0] == '"' and v[-1] == '"') or (v[0] == "'" and v[-1] == "'")):
+                    v = v[1:-1]
+                if k and (override or k not in os.environ):
+                    os.environ[k] = v
+        return True
+    except Exception as e:
+        logger.warning("Failed to parse .env file at %s: %s", path, e)
+        return False
+
+
+# Automatically load .env on module import if present
+load_env_file()
 
 
 def load_json_file(file_path: Path) -> Optional[Any]:
@@ -138,7 +184,7 @@ def get_firebase_key_path() -> Optional[Path]:
     if fallback.exists():
         return fallback
         
-    return primary  # Return standard location even if it does not yet exist for clear error message
+    return primary
 
 
 def get_firestore_collection() -> str:
@@ -158,3 +204,9 @@ def get_firestore_collection() -> str:
         return configured_col.strip()
         
     return "posts"
+
+
+def get_fixture_path(filename: Optional[str] = None) -> Path:
+    """Return path to default offline fixture file."""
+    name = filename or "sample_page_text.txt"
+    return get_project_root() / "tests" / "fixtures" / name

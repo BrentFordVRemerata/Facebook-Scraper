@@ -111,6 +111,34 @@ class TestConfig(unittest.TestCase):
             else:
                 os.environ.pop("FIRESTORE_COLLECTION", None)
 
+    def test_load_env_file(self):
+        with tempfile.NamedTemporaryFile("w+", delete=False) as tf:
+            tf.write("# Test .env file\n")
+            tf.write("CUSTOM_ENV_TEST_VAR=loaded_successfully\n")
+            tf.write("QUOTED_VAR=\"value_with_quotes\"\n")
+            tf.write("SPACED_VAR = spaced_value \n")
+            tf_path = Path(tf.name)
+
+        try:
+            from src.config import load_env_file
+            res = load_env_file(tf_path, override=True)
+            self.assertTrue(res)
+            self.assertEqual(os.environ.get("CUSTOM_ENV_TEST_VAR"), "loaded_successfully")
+            self.assertEqual(os.environ.get("QUOTED_VAR"), "value_with_quotes")
+            self.assertEqual(os.environ.get("SPACED_VAR"), "spaced_value")
+        finally:
+            os.environ.pop("CUSTOM_ENV_TEST_VAR", None)
+            os.environ.pop("QUOTED_VAR", None)
+            os.environ.pop("SPACED_VAR", None)
+            if tf_path.exists():
+                tf_path.unlink()
+
+    def test_get_fixture_path(self):
+        from src.config import get_fixture_path
+        fixture = get_fixture_path()
+        self.assertTrue(fixture.exists())
+        self.assertIn("sample_page_text.txt", str(fixture))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -83,6 +83,47 @@ class TestMainPipeline(unittest.TestCase):
         self.assertEqual(mock_init_fb.call_count, 0)
         self.assertEqual(mock_save_posts.call_count, 0)
 
+    @patch("src.scraper.scrape_page")
+    def test_run_pipeline_offline_fixture_mode(self, mock_scrape_page):
+        """Verify offline mode parses local fixtures without invoking browser scrapers."""
+        sources = [{"id": "qcu_test", "name": "QCU Offline", "posts_to_fetch": 5, "enabled": True}]
+
+        exit_code = run_pipeline(
+            sources=sources,
+            dry_run=True,
+            offline=True
+        )
+
+        self.assertEqual(exit_code, 0)
+        # Browser scraper must NEVER be invoked in offline mode
+        self.assertEqual(mock_scrape_page.call_count, 0)
+
+    @patch("src.scraper.SELENIUM_AVAILABLE", True)
+    @patch("src.scraper.scrape_page")
+    @patch("main.initialize_firebase", return_value=True)
+    @patch("main.save_posts_batch")
+    def test_run_pipeline_database_write_error_exits_nonzero(
+        self,
+        mock_save_posts,
+        mock_init_fb,
+        mock_scrape_page
+    ):
+        """Verify that Firestore write errors result in a non-zero exit status (code 3)."""
+        stat = ScraperStats(page_id="test_page", success=True)
+        mock_scrape_page.return_value = ([{"post_id": "test_1", "text": "sample"}], stat)
+        
+        # Simulate Firestore reporting 2 write errors
+        mock_save_posts.return_value = {"saved": 0, "skipped": 0, "errors": 2}
+
+        sources = [{"id": "qcu_test", "name": "QCU", "posts_to_fetch": 2, "enabled": True}]
+
+        exit_code = run_pipeline(
+            sources=sources,
+            dry_run=False
+        )
+
+        self.assertEqual(exit_code, 3, "Database write errors must return exit code 3")
+
 
 if __name__ == "__main__":
     unittest.main()
