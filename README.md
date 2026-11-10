@@ -148,7 +148,7 @@ cp .env.example .env
 
 ### 3. Run Automated Unit Tests
 
-Run the offline unit test suite (31 tests, completes in ~0.01s with zero network access):
+Run the offline unit test suite (37 tests, completes in ~0.02s with zero network access):
 
 ```bash
 python3 -m unittest discover -s tests -p "test_*.py" -v
@@ -166,13 +166,15 @@ python3 test_scraper.py
 
 The CLI supports two distinct operational modes:
 
-#### A. Genuine Offline Fixture Mode (Zero Browser, Zero Network)
+#### A. Genuine Offline Fixture Mode (Zero Browser, Zero Network, Zero Database Writes)
 Ideal for testing parsing, deduplication, and schema validation safely:
 
 ```bash
-# Parses local announcement fixture without launching browsers or accessing the internet
-python3 main.py --offline --dry-run
+# Parses local announcement fixture without launching browsers, network requests, or database writes
+python3 main.py --offline
 ```
+
+*Note on `--offline`: When `--offline` is active, browser automation, external network calls, and Firestore persistence are **unconditionally disabled** (even if `--dry-run` is omitted). Reported counts represent synthetic sample records from the offline fixture.*
 
 #### B. Live Scraping Mode (Requires Browser & Internet Access)
 Runs browser automation against public Facebook pages:

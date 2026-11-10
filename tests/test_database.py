@@ -177,10 +177,10 @@ class TestDatabase(unittest.TestCase):
         mock_client = MockFirestoreClient()
         set_firestore_client(mock_client)
 
-        # Pre-populate legacy document in Firestore
+        # Pre-populate legacy document in Firestore with identical content
         mock_client.collection("posts").documents["qcu1994_42ef9169"] = {"text": "Old Post"}
 
-        # Incoming post has new SHA-256 ID, but also references legacy_post_id
+        # Incoming post has new SHA-256 ID, but also references legacy_post_id and has same content
         new_post = {
             "post_id": "qcu1994_newsha256id",
             "legacy_post_id": "qcu1994_42ef9169",
@@ -189,8 +189,99 @@ class TestDatabase(unittest.TestCase):
         }
 
         result = save_posts_batch([new_post])
-        self.assertEqual(result["skipped"], 1, "Should skip post because it already exists under legacy ID")
+        self.assertEqual(result["skipped"], 1, "Should skip post because identical content exists under legacy ID")
         self.assertEqual(result["saved"], 0)
+
+    def test_legacy_post_id_identical_prefix_different_body_saves_new_post(self):
+        """
+        Verify that posts with identical first-100-character headers but different bodies
+        are NOT falsely skipped just because legacy_post_id exists in Firestore.
+        """
+        mock_client = MockFirestoreClient()
+        set_firestore_client(mock_client)
+
+        # Legacy document stored in Firestore
+        mock_client.collection("posts").documents["qcu1994_42ef9169"] = {
+            "text": "QUEZON CITY UNIVERSITY ADVISORY: Midterm examination schedule has been published.",
+            "content_hash": "hash_midterms"
+        }
+
+        # New post has identical 100-char prefix (thus identical legacy_post_id), but different body
+        new_post = {
+            "post_id": "qcu1994_graduation_sha256",
+            "legacy_post_id": "qcu1994_42ef9169",
+            "text": "QUEZON CITY UNIVERSITY ADVISORY: Commencement exercises moved to May 25, 2026.",
+            "content_hash": "hash_graduation"
+        }
+
+        result = save_posts_batch([new_post])
+        self.assertEqual(result["saved"], 1, "New post with different content must be saved despite legacy ID match")
+        self.assertEqual(result["skipped"], 0)
+        self.assertIn("qcu1994_graduation_sha256", mock_client.collection("posts").documents)
+
+    def test_existing_sha256_id_skipped(self):
+        """Verify that a post whose exact SHA-256 ID already exists in Firestore is skipped."""
+        mock_client = MockFirestoreClient()
+        set_firestore_client(mock_client)
+
+        existing_id = "qcu1994_a1b2c3d4e5f6"
+        mock_client.collection("posts").documents[existing_id] = {
+            "post_id": existing_id,
+            "text": "Existing announcement"
+        }
+
+        incoming_post = {
+            "post_id": existing_id,
+            "text": "Existing announcement",
+            "content_hash": "a1b2c3d4e5f6"
+        }
+
+        result = save_posts_batch([incoming_post])
+        self.assertEqual(result["saved"], 0)
+        self.assertEqual(result["skipped"], 1, "Post with existing SHA-256 ID must be skipped")
+
+    def test_idempotent_repeated_saves(self):
+        """Verify that repeating save_posts_batch with identical records is completely idempotent."""
+        mock_client = MockFirestoreClient()
+        set_firestore_client(mock_client)
+
+        posts = [
+            {"post_id": "p_alpha", "text": "Alpha Announcement", "content_hash": "h_alpha"},
+            {"post_id": "p_beta", "text": "Beta Announcement", "content_hash": "h_beta"}
+        ]
+
+        # First run saves all unique items
+        run_1 = save_posts_batch(posts)
+        self.assertEqual(run_1["saved"], 2)
+        self.assertEqual(run_1["skipped"], 0)
+
+        # Second run skips all already-persisted items
+        run_2 = save_posts_batch(posts)
+        self.assertEqual(run_2["saved"], 0)
+        self.assertEqual(run_2["skipped"], 2)
+        self.assertEqual(run_2["errors"], 0)
+
+    def test_avoid_unnecessary_firestore_reads_when_existing_hashes_unused(self):
+        """
+        Verify that collection scan (stream) is not executed when cross_source_dedup=False
+        or when posts list is empty.
+        """
+        mock_client = MockFirestoreClient()
+        set_firestore_client(mock_client)
+
+        # Mock collection stream
+        col = mock_client.collection("posts")
+        col.stream = MagicMock(return_value=[])
+
+        # Empty posts should return immediately without touching collection stream
+        res_empty = save_posts_batch([])
+        self.assertEqual(res_empty["saved"], 0)
+        col.stream.assert_not_called()
+
+        # Non-empty posts with default cross_source_dedup=False should NOT stream collection hashes
+        posts = [{"post_id": "p_test", "text": "Test", "content_hash": "h_test"}]
+        save_posts_batch(posts, cross_source_dedup=False)
+        col.stream.assert_not_called()
 
     def test_batch_commit_error_handling(self):
         mock_client = MockFirestoreClient()

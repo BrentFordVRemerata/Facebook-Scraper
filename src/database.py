@@ -133,19 +133,67 @@ def post_exists(post_id: str, collection: Optional[str] = None) -> bool:
         return False
 
 
+def get_post_document(post_id: str, collection: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Retrieve post document data by ID if it exists, else None."""
+    client = get_firestore_client()
+    if client is None:
+        return None
+        
+    target_collection = collection or get_firestore_collection()
+    try:
+        doc = client.collection(target_collection).document(post_id).get()
+        if getattr(doc, 'exists', False):
+            return doc.to_dict() if hasattr(doc, 'to_dict') else {}
+        return None
+    except Exception:
+        return None
+
+
+def is_content_identical(stored_data: Dict[str, Any], incoming_data: Dict[str, Any]) -> bool:
+    """
+    Check if the stored Firestore document has identical content to the incoming post.
+    Compares content_hash, raw_text, or normalized text.
+    """
+    # 1. Direct content_hash comparison
+    stored_hash = stored_data.get('content_hash')
+    incoming_hash = incoming_data.get('content_hash')
+    if stored_hash and incoming_hash and stored_hash == incoming_hash:
+        return True
+
+    # 2. Compare text / raw_text
+    stored_text = stored_data.get('raw_text') or stored_data.get('text') or ''
+    incoming_text = incoming_data.get('raw_text') or incoming_data.get('text') or ''
+    if stored_text and incoming_text:
+        if stored_text.strip() == incoming_text.strip():
+            return True
+        try:
+            from src.parser import generate_content_hash
+            if generate_content_hash(stored_text) == generate_content_hash(incoming_text):
+                return True
+        except ImportError:
+            pass
+
+    return False
+
+
 def check_existing_post(
     post_id: str,
     legacy_post_id: Optional[str] = None,
+    post_data: Optional[Dict[str, Any]] = None,
     collection: Optional[str] = None
 ) -> bool:
     """
     Check if a post already exists under its current SHA-256 ID or historical MD5 ID.
-    Supports seamless migration without duplicating historical records.
+    If matching a legacy ID, verifies stored content before treating as duplicate.
     """
     if post_exists(post_id, collection=collection):
         return True
-    if legacy_post_id and post_exists(legacy_post_id, collection=collection):
-        return True
+    if legacy_post_id:
+        legacy_data = get_post_document(legacy_post_id, collection=collection)
+        if legacy_data is not None:
+            if post_data is not None:
+                return is_content_identical(legacy_data, post_data)
+            return True
     return False
 
 
@@ -204,6 +252,9 @@ def save_posts_batch(
         dict: {"saved": int, "skipped": int, "errors": int}
     """
     results = {"saved": 0, "skipped": 0, "errors": 0}
+    if not posts:
+        return results
+
     client = get_firestore_client()
     if client is None:
         logger.warning("Firestore client not initialized. Cannot perform batch save.")
@@ -212,8 +263,10 @@ def save_posts_batch(
         
     target_collection = collection or get_firestore_collection()
     
-    # Track existing content hashes
-    existing_hashes = get_existing_hashes(collection=target_collection)
+    # Avoid unnecessary Firestore reads: only fetch existing hashes when cross-source dedup is active
+    existing_hashes: Set[str] = set()
+    if cross_source_dedup:
+        existing_hashes = get_existing_hashes(collection=target_collection)
     
     seen_in_batch: Set[str] = set()
     seen_source_hashes: Set[Tuple[str, str]] = set()
@@ -221,7 +274,6 @@ def save_posts_batch(
     try:
         batch = client.batch()
         batch_count = 0
-        current_batch_items = 0
         
         for item in posts:
             post_data = item.to_dict() if hasattr(item, 'to_dict') else dict(item)
@@ -235,7 +287,7 @@ def save_posts_batch(
                 results["skipped"] += 1
                 continue
                 
-            # Deduplicate against current batch
+            # Deduplicate against current in-flight batch
             if post_id in seen_in_batch:
                 results["skipped"] += 1
                 continue
@@ -252,21 +304,40 @@ def save_posts_batch(
                         continue
                     seen_source_hashes.add(source_key)
 
-            # Migration check: verify if document already exists under legacy post_id
-            if legacy_post_id and post_exists(legacy_post_id, collection=target_collection):
-                logger.info("Skipping post %s; already exists under legacy ID %s", post_id, legacy_post_id)
+            # Idempotent save check: verify if document already exists under its own SHA-256 post_id
+            doc_ref = client.collection(target_collection).document(post_id)
+            doc_snap = doc_ref.get()
+            if getattr(doc_snap, 'exists', False):
+                logger.info("Skipping post %s; already exists in Firestore", post_id)
                 results["skipped"] += 1
                 continue
+
+            # Migration check: verify if document already exists under legacy post_id with identical content
+            if legacy_post_id:
+                legacy_doc_ref = client.collection(target_collection).document(legacy_post_id)
+                legacy_snap = legacy_doc_ref.get()
+                if getattr(legacy_snap, 'exists', False):
+                    legacy_data = legacy_snap.to_dict() if hasattr(legacy_snap, 'to_dict') else {}
+                    if is_content_identical(legacy_data, post_data):
+                        logger.info(
+                            "Skipping post %s; identical content already exists under legacy ID %s",
+                            post_id, legacy_post_id
+                        )
+                        results["skipped"] += 1
+                        continue
+                    else:
+                        logger.info(
+                            "Legacy ID %s exists in Firestore, but stored content differs from post %s; saving new post",
+                            legacy_post_id, post_id
+                        )
                 
             seen_in_batch.add(post_id)
-            if content_hash:
+            if content_hash and cross_source_dedup:
                 existing_hashes.add(content_hash)
                 
-            doc_ref = client.collection(target_collection).document(post_id)
             post_data['updated_at'] = datetime.now(timezone.utc).isoformat()
             batch.set(doc_ref, post_data)
             batch_count += 1
-            current_batch_items += 1
             
             # Firestore limit: 500 operations per batch
             if batch_count >= 500:

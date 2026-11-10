@@ -27,16 +27,17 @@ def run_offline_fixture_pipeline(
     sources: List[Dict[str, Any]],
     fixture_path: Optional[Path] = None,
     override_max_posts: Optional[int] = None
-) -> List[Dict[str, Any]]:
+) -> Optional[List[Dict[str, Any]]]:
     """
     Execute pipeline in genuine offline mode using local text fixtures.
     Zero browser launch, zero network access, zero external credentials.
+    Returns None if the fixture file is missing.
     """
     path = fixture_path or get_fixture_path()
     if not path.exists():
         logger.error("Fixture file not found at: %s", path)
         print(f"❌ Fixture file missing: {path}")
-        return []
+        return None
 
     print(f"📄 Loading offline fixture from: {path.name}")
     raw_text = path.read_text(encoding="utf-8")
@@ -58,8 +59,8 @@ def run_offline_fixture_pipeline(
         )
 
         for p in posts:
-            print(f"   ✅ [Fixture] {p['title'][:60]}...")
-        print(f"   ✨ Extracted {len(posts)} posts from offline fixture.")
+            print(f"   ✅ [Synthetic Sample] {p['title'][:60]}...")
+        print(f"   ✨ Extracted {len(posts)} synthetic sample posts from offline fixture.")
         all_posts.extend(posts)
 
     return all_posts
@@ -80,18 +81,23 @@ def run_pipeline(
     print("=" * 60)
     print("QCU FACEBOOK ANNOUNCEMENT SCRAPER")
     print("=" * 60)
-    print(f"Mode:        {'OFFLINE FIXTURE (No network/browser)' if offline else 'LIVE SCRAPING'}")
-    if not offline:
+    if offline:
+        print("Mode:        OFFLINE FIXTURE (No network/browser)")
+        print("Dry Run:     True (Unconditionally offline: database writes disabled)")
+    else:
+        print("Mode:        LIVE SCRAPING")
         print(f"Backend:     {'Playwright' if use_playwright else 'Selenium'}")
         print(f"Headless:    {headless}")
-    print(f"Dry Run:     {dry_run} (Skip Firestore write: {dry_run})")
+        print(f"Dry Run:     {dry_run} (Skip Firestore write: {dry_run})")
     print(f"Sources:     {len(sources)}")
     print("=" * 60)
     print()
 
     # Determine database persistence
     use_firebase = False
-    if not dry_run:
+    if offline:
+        print("ℹ️  Offline mode active: external network, browser, and database writes are disabled.")
+    elif not dry_run:
         print("🔥 Connecting to Firebase Firestore...")
         if initialize_firebase():
             print("✅ Firebase connected successfully.")
@@ -106,11 +112,15 @@ def run_pipeline(
     failed_sources: List[str] = []
 
     if offline:
-        all_posts = run_offline_fixture_pipeline(
+        fixture_posts = run_offline_fixture_pipeline(
             sources=sources,
             fixture_path=fixture_path,
             override_max_posts=override_max_posts
         )
+        if fixture_posts is None:
+            print("❌ Offline pipeline execution aborted: fixture file missing.")
+            return 1
+        all_posts = fixture_posts
     else:
         # Load appropriate browser scraper module
         if use_playwright:
@@ -167,15 +177,22 @@ def run_pipeline(
         if db_errors > 0:
             print(f"   ❌ Encountered {db_errors} database write error(s).")
     elif all_posts and not use_firebase:
-        print(f"\nℹ️  Collected {len(all_posts)} posts (unsaved due to dry-run or unconfigured Firebase).")
+        if offline:
+            print(f"\nℹ️  Processed {len(all_posts)} synthetic sample posts from offline fixture (offline mode: external database writes disabled).")
+        else:
+            print(f"\nℹ️  Collected {len(all_posts)} posts (unsaved due to dry-run or unconfigured Firebase).")
 
     # Final summary
     print()
     print("=" * 60)
     print("EXECUTION SUMMARY")
     print("=" * 60)
-    print(f"Total posts collected: {len(all_posts)}")
-    print(f"Failed sources:        {len(failed_sources)} ({', '.join(failed_sources) if failed_sources else 'None'})")
+    if offline:
+        print(f"Synthetic sample posts parsed: {len(all_posts)}")
+        print("Note: Offline fixture counts represent synthetic sample records, not live scraped posts.")
+    else:
+        print(f"Total posts collected: {len(all_posts)}")
+        print(f"Failed sources:        {len(failed_sources)} ({', '.join(failed_sources) if failed_sources else 'None'})")
     print(f"Database write errors: {db_errors}")
     print(f"Completed at:          {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)

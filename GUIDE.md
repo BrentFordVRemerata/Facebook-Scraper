@@ -123,7 +123,7 @@ All scraped posts are parsed and normalized through `src/parser.py`:
 ### Hash Collision Fix & Migration Compatibility
 Earlier prototype code generated post IDs using an MD5 hash of only the first 100 characters (`hashlib.md5(block[:100].encode())`). When university departments published announcements with identical header letterheads (e.g. *"QUEZON CITY UNIVERSITY / OFFICE OF THE REGISTRAR / ADVISORY"*), distinct posts produced identical hashes, causing subsequent posts to be silently skipped or overwritten. 
 
-The current implementation hashes the complete normalized text content with SHA-256 (`src/parser.py`), guaranteeing uniqueness. To prevent duplicate document creation against pre-existing Firestore databases, `legacy_post_id` is computed and verified by `src/database.py`.
+The current implementation hashes the complete normalized text content with SHA-256 (`src/parser.py`), guaranteeing uniqueness. To prevent duplicate document creation against pre-existing Firestore databases while avoiding false collision bugs, `src/database.py` verifies stored document content before treating a legacy record as a duplicate. If a new post shares the same first 100 characters as an older announcement but has different body content, it is saved under its distinct SHA-256 ID.
 
 ---
 
@@ -159,7 +159,9 @@ Sequential scraping across 50–100 sources would take 20–40 minutes per run. 
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
-| 2026-11-10 | Add `--offline` fixture mode | Provides genuine 100% offline pipeline testing with zero browser and zero network calls. |
+| 2026-11-10 | Enforce unconditional `--offline` safety | Prevents browser launch, external network, and database writes even if `--dry-run` is omitted. |
+| 2026-11-10 | Verify stored content during legacy migration | Prevents false deduplication when two distinct posts share identical first-100-character headers. |
+| 2026-11-10 | Avoid redundant Firestore queries | Suppresses full-collection hash scans when `cross_source_dedup=False` or when post batches are empty. |
 | 2026-11-10 | Add automatic `.env` loading | Allows copying `.env.example` to `.env` without requiring external export scripts. |
 | 2026-11-10 | Support legacy ID migration | Prevents Firestore record duplication when transitioning from 8-char MD5 IDs to 12-char SHA-256 IDs. |
 | 2026-11-10 | Make Firestore write errors fail pipeline | Ensures database failures return exit code 3 instead of exiting with 0. |
@@ -167,7 +169,7 @@ Sequential scraping across 50–100 sources would take 20–40 minutes per run. 
 | 2026-11-10 | Sanitize public security disclosures | Keeps specific commit hashes and file paths private to avoid advertising sensitive data locations. |
 | 2026-11-10 | Extract `src/parser.py` | Centralizes DOM parsing, fixes trailing block drop, prevents MD5 header collisions with full-text SHA-256. |
 | 2026-11-10 | Make debug dumps opt-in | Prevents unconditional writing of personal session DOM dumps to disk. |
-| 2026-11-10 | Add 31 offline unit tests | Ensures all logic (parsing, deduplication, path resolution, CLI forwarding) is testable without network access. |
+| 2026-11-10 | Add 37 offline unit tests | Ensures all logic (parsing, deduplication, path resolution, CLI forwarding, migration) is testable without network access. |
 | 2026-11-10 | Harmonize configuration paths | Aligns `config/settings.json`, `src/config.py`, and `src/database.py` onto standard filenames (`config/firebase-key.json`). |
 | 2026-02-01 | Selenium as primary | Standard browser automation for initial prototype testing. |
 | 2026-02-01 | Playwright as backup | Explored for faster execution (~15s vs ~21s). |
@@ -189,15 +191,15 @@ Sequential scraping across 50–100 sources would take 20–40 minutes per run. 
    - Sanitized public security disclosures to avoid publicizing sensitive data locations.
 2. **Code & Architecture Corrections:**
    - Fixed bug in `main.py` where `posts_to_fetch` and `page_name` were omitted from `scrape_page()` calls.
-   - Added genuine `--offline` fixture mode to `main.py` with sample test data.
+   - Added genuine unconditional `--offline` fixture mode to `main.py` with synthetic sample test data (missing fixture returns exit code 1).
    - Added automatic `.env` loading in `src/config.py`.
    - Ensured Firestore write errors return a non-zero exit code (code 3).
    - Created `src/parser.py` with full SHA-256 text hashing and legacy post ID tracking for backward-compatible migration.
    - Fixed trailing text block drop at the end of the text stream.
    - Created `src/config.py` to harmonize path resolution for cookies, service account keys, and Firestore collections.
-   - Refactored `src/database.py` for mockable Firestore operations, per-source deduplication, and legacy document checking.
+   - Refactored `src/database.py` for mockable Firestore operations, content-verifying legacy migration, idempotent repeated saves, and elimination of unnecessary Firestore reads.
 3. **Automated Testing Suite & CI:**
-   - Implemented 31 offline unit tests under `tests/` covering parser edge cases, configuration validation, mock Firestore batch persistence, and CLI execution. All tests pass with 0 external network calls in ~0.01s.
+   - Implemented 37 offline unit tests under `tests/` covering parser edge cases, configuration validation, mock Firestore batch persistence, migration checks, and CLI execution. All tests pass with 0 external network calls in ~0.02s.
    - Created minimal GitHub Actions workflow (`.github/workflows/test.yml`) running offline unit tests on Python 3.10, 3.11, and 3.12.
 4. **Documentation Modernization:**
    - Rewrote `README.md` and `GUIDE.md` with honest 4-tier verification matrices, corrected legal analyses, and licensing guidance.

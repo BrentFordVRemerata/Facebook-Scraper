@@ -98,6 +98,46 @@ class TestMainPipeline(unittest.TestCase):
         # Browser scraper must NEVER be invoked in offline mode
         self.assertEqual(mock_scrape_page.call_count, 0)
 
+    @patch("src.scraper.scrape_page")
+    @patch("main.initialize_firebase")
+    @patch("main.save_posts_batch")
+    def test_run_pipeline_offline_unconditionally_disables_firebase_and_network(
+        self,
+        mock_save_posts,
+        mock_init_fb,
+        mock_scrape_page
+    ):
+        """
+        Regression test: Verify that offline=True unconditionally prevents browser access,
+        network requests, and external database writes even when dry_run=False.
+        """
+        sources = [{"id": "qcu_test", "name": "QCU Offline", "posts_to_fetch": 3, "enabled": True}]
+
+        exit_code = run_pipeline(
+            sources=sources,
+            offline=True,
+            dry_run=False  # Even with dry_run=False, offline mode must not write to Firebase!
+        )
+
+        self.assertEqual(exit_code, 0)
+        # Neither Firebase connection nor batch persistence should ever be attempted
+        self.assertEqual(mock_init_fb.call_count, 0, "Firebase must not be initialized in offline mode")
+        self.assertEqual(mock_save_posts.call_count, 0, "Firestore writes must not occur in offline mode")
+        self.assertEqual(mock_scrape_page.call_count, 0, "Browser scraper must not run in offline mode")
+
+    def test_run_pipeline_offline_missing_fixture_exits_nonzero(self):
+        """Verify that a missing fixture file in offline mode returns a non-zero exit status (code 1)."""
+        from pathlib import Path
+        sources = [{"id": "qcu_test", "name": "QCU", "posts_to_fetch": 2, "enabled": True}]
+
+        exit_code = run_pipeline(
+            sources=sources,
+            offline=True,
+            fixture_path=Path("/nonexistent/path/fixture.txt")
+        )
+
+        self.assertEqual(exit_code, 1, "Missing offline fixture must return non-zero exit code 1")
+
     @patch("src.scraper.SELENIUM_AVAILABLE", True)
     @patch("src.scraper.scrape_page")
     @patch("main.initialize_firebase", return_value=True)
