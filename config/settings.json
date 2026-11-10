@@ -73,15 +73,15 @@
   },
   
   "authentication": {
-    "cookies_file": "config/cookies.txt",
+    "cookies_file": "config/facebook_cookies.txt",
     "cookie_refresh_days": 30,
     "alert_on_cookie_expiry": true
   },
   
   "firebase": {
     "project_id": "${FIREBASE_PROJECT_ID}",
-    "credentials_file": "config/firebase_config.json",
-    "collection_announcements": "announcements",
+    "credentials_file": "config/firebase-key.json",
+    "collection_announcements": "posts",
     "collection_scraper_state": "scraper_state",
     "collection_config": "config",
     "storage_bucket": "${FIREBASE_STORAGE_BUCKET}",

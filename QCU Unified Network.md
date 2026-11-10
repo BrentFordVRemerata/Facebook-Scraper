@@ -1,392 +1,197 @@
-# 🏛️ QCU Unified Network - Architecture Document
+# 🏛️ QCU Unified Network - Conceptual System Architecture
 
-**Version:** 2.1.0  
-**Lead Architect:** Brent Ford V. Remerata  
-**Last Updated:** February 1, 2026  
-**Status:** Phase 1 Complete ✅
+> **Document Type:** Conceptual System Architecture & Technical Specification  
+> **Original Date:** February 1, 2026  
+> **Recovery & Audit Date:** November 2026  
+> **Current Status:** Proof-of-concept backend prototype archived; mobile client planned only  
 
-**Objective:** Centralize fragmented university announcements into a single, filterable mobile feed.
+**Objective:** Explore centralizing fragmented university announcements across Quezon City University (QCU) campuses into a single, accessible mobile feed for students.
 
 ---
 
 ## 📋 Table of Contents
 
-1. [System Overview](#1-system-overview)
-2. [Implementation Status](#2-implementation-status)
-3. [Repository Strategy](#3-repository-strategy)
-4. [Backend (Scraper)](#4-backend-the-scraper)
-5. [Database (Firebase)](#5-database-firebase)
-6. [Mobile App (Future)](#6-mobile-app-future)
-7. [Data Schema](#7-data-schema)
-8. [Design Principles](#8-design-principles)
-9. [Risk Management](#9-risk-management)
+1. [System Overview & Concept](#1-system-overview--concept)
+2. [Implementation & Verification Status](#2-implementation--verification-status)
+3. [Multi-Repository Strategy](#3-multi-repository-strategy)
+4. [Backend Scraper Pipeline](#4-backend-scraper-pipeline)
+5. [Database Architecture (Firebase)](#5-database-architecture-firebase)
+6. [Mobile App Specification (Conceptual)](#6-mobile-app-specification-conceptual)
+7. [Normalized Data Schema](#7-data-schema)
+8. [Risk Assessment & Limitations](#8-risk-assessment--limitations)
+9. [Related Documents](#9-related-documents)
 
 ---
 
-## 1. System Overview
+## 1. System Overview & Concept
 
-### How It All Connects
+### Conceptual System Architecture
 
 ```mermaid
 graph TD
-    subgraph External["🌐 Data Sources"]
-        FB[("📘 Facebook Pages<br/>7 QCU pages")]
+    subgraph Sources["🌐 Data Sources"]
+        FB["📘 Public Facebook Pages<br/>(QCU Main, Registrar, Guidance, etc.)"]
     end
 
-    subgraph Scraper["🧠 Scraper (Python)"]
-        Selenium["🔍 Selenium<br/>(Primary)"]
-        Playwright["🔍 Playwright<br/>(Backup)"]
+    subgraph Backend["🧠 Scraper Backend (Python)"]
+        Selenium["🔍 Selenium Scraper<br/>(Primary Engine)"]
+        Playwright["🔍 Playwright Scraper<br/>(Backup Engine)"]
+        Parser["⚙️ Text Parser & SHA-256 Hasher"]
     end
 
-    subgraph Cloud["☁️ Firebase"]
-        Firestore[("💾 Firestore<br/>posts collection")]
+    subgraph Database["☁️ Cloud Database"]
+        Firestore[("💾 Google Firebase Firestore<br/>posts collection")]
     end
 
-    subgraph App["📱 Mobile App (Future)"]
-        Flutter["📲 Flutter App"]
-        Feed["🎨 Announcement Feed"]
+    subgraph Client["📱 Planned Mobile Client (Conceptual)"]
+        Flutter["📲 Student Mobile App<br/>(Not implemented)"]
+        Feed["🎨 Consolidated Feed UI"]
     end
 
-    FB -->|"Cookie Auth"| Selenium
-    FB -->|"Cookie Auth"| Playwright
-    Selenium -->|"47 posts"| Firestore
-    Playwright -.->|"Backup"| Firestore
-    Firestore -->|"Realtime Sync"| Flutter
-    Flutter --> Feed
+    FB -->|"Headless Browser"| Selenium
+    FB -->|"Headless Browser"| Playwright
+    Selenium --> Parser
+    Playwright --> Parser
+    Parser -->|"Batched Documents"| Firestore
+    Firestore -.->|"Realtime Sync (Future)"| Flutter
+    Flutter -.-> Feed
 
-    style External fill:#e1f5fe
-    style Scraper fill:#fff3e0
-    style Cloud fill:#f3e5f5
-    style App fill:#e8f5e9
+    style Sources fill:#e1f5fe
+    style Backend fill:#fff3e0
+    style Database fill:#f3e5f5
+    style Client fill:#e8f5e9
 ```
 
 ### Display Strategy: Preview Card → Redirect
+Rather than caching entire Facebook pages or scraping media assets that may violate copyright or quickly break due to CDN link expiration, the architecture adopts a lightweight **Preview Card → Redirect** paradigm:
 
 ```mermaid
 flowchart LR
-    subgraph App["📱 Mobile App"]
-        Card["Preview Card<br/>• Title<br/>• Date<br/>• Preview text<br/>• Thumbnail"]
-    end
-    
-    subgraph Action["👆 User Taps"]
-        Tap["View on Facebook"]
-    end
-    
-    subgraph FB["📘 Facebook"]
-        Post["Original Post<br/>Full content"]
-    end
-    
-    Card --> Tap --> Post
+    Card["Mobile Preview Card<br/>• Title<br/>• Scraped Timestamp<br/>• Preview text"] --> Tap["User Taps Post"]
+    Tap --> External["Redirect to Facebook<br/>(Opens original post)"]
     
     style Card fill:#e3f2fd
     style Tap fill:#fff9c4
-    style Post fill:#e8f5e9
+    style External fill:#e8f5e9
 ```
 
-**Why redirect to Facebook?**
-- ✅ Simple - Don't recreate Facebook UI
-- ✅ Legal - Drive traffic TO Facebook, not away
-- ✅ Reliable - Post changes, our link still works
+---
+
+## 2. Implementation & Verification Status
+
+| Category | Component | Status | Notes |
+|----------|-----------|--------|-------|
+| **Historically Implemented** | Python DOM scraper | ✅ Verified | Selenium and Playwright scripts extract text blocks from rendered DOM. |
+| **Historically Implemented** | Firebase Firestore persistence | ✅ Verified | Batch writing to `posts` collection with deduplication. |
+| **Tested (Nov 2026)** | Automated test suite | ✅ Verified | 23 offline unit tests in `tests/` covering parsing, configuration, and mock database operations. |
+| **Unverified (Live)** | Live Facebook scraping | ⚠️ Unverified | Facebook DOM obfuscations and bot detection change frequently; historical selectors may require updates. |
+| **Incomplete** | Post permalinks (`post_url`) | 🔴 Incomplete | Not extracted by text parser. |
+| **Incomplete** | Post creation timestamps (`posted_at`) | 🔴 Incomplete | Only scraping execution time (`scraped_at`) is recorded. |
+| **Incomplete** | Image extraction & storage | 🔴 Incomplete | No media downloader or Firebase Storage uploader exists in code. |
+| **Incomplete** | Background scheduler daemon | 🔴 Incomplete | Execution is manual CLI invocation only. |
+| **Planned Only** | Student mobile application | ⏳ Concept Only | No Flutter code or mobile repository was developed. |
+| **Planned Only** | Multi-channel notifications | ⏳ Concept Only | Webhook alerts (Discord, Telegram, Email) are not implemented. |
 
 ---
 
-## 2. Implementation Status
+## 3. Multi-Repository Strategy
 
-### Current Progress
+The conceptual roadmap envisioned separating responsibilities across dedicated repositories:
 
-```mermaid
-pie title Project Completion
-    "Phase 1: Done" : 100
-    "Phase 2: In Progress" : 0
-    "Phase 3: Planned" : 0
-```
-
-### Phase Breakdown
-
-| Phase | Status | Description |
-|-------|--------|-------------|
-| **Phase 1: MVP** | ✅ Complete | Scraper working, Firebase saving |
-| **Phase 2: Rich Data** | 🔄 In Progress | Extract URLs, dates, images |
-| **Phase 3: Processing** | ⏳ Planned | Tags, duplicate detection |
-| **Phase 4: Mobile** | ⏳ Planned | Flutter app development |
-
-### What Works Now
-
-| Component | Status | Details |
-|-----------|--------|---------|
-| Selenium Scraper | ✅ Working | ~20s/page, 6-10 posts |
-| Playwright Backup | ✅ Working | ~15s/page (32% faster) |
-| Firebase Save | ✅ Working | Collection: `posts` |
-| Cookie Auth | ✅ Working | 10 cookies loaded |
-| **47 posts from 7 pages** | ✅ Complete | ~2.5 minutes total |
-
-### What's Missing (Critical)
-
-| Feature | Priority | Status |
-|---------|----------|--------|
-| post_url | 🔴 Critical | Not extracted |
-| posted_at | 🔴 Critical | Not extracted |
-| images[] | 🔴 Critical | Not extracted |
-| source.name | 🟡 High | Uses ID instead |
-| tags | 🟡 Medium | Not implemented |
+| Repository | Tech Stack | Responsibility | Status |
+|------------|------------|----------------|--------|
+| `Facebook-Scraper` | Python 3.10–3.12 | Public announcement extraction & Firestore storage | ⚠️ Proof-of-concept prototype |
+| `qcu-student-app` | Flutter / Dart | Mobile client for students (cross-platform iOS/Android) | ⏳ Planned only (never created) |
+| `qcu-admin-portal` | React / Node.js | University staff portal for manual announcement publishing | ⏳ Planned only (never created) |
 
 ---
 
-## 3. Repository Strategy
-
-Multi-repo approach for different teams:
-
-| Repository | Language | Purpose | Status |
-|------------|----------|---------|--------|
-| `Facebook-Scraper` | Python | Data collection | ✅ Working |
-| `qcu-student-app` | Flutter | Mobile interface | ⏳ Future |
-| `qcu-admin-portal` | Web | Manual posting backup | ⏳ Future |
-
----
-
-## 4. Backend (The Scraper)
+## 4. Backend Scraper Pipeline
 
 ### Technology Stack
+- **Language:** Python 3.10 – 3.12+
+- **Primary Scraper:** Selenium (`selenium>=4.20.0`, `webdriver-manager>=4.0.0`)
+- **Backup Scraper:** Playwright (`playwright>=1.40.0`)
+- **Database Client:** Firebase Admin SDK (`firebase-admin>=6.2.0`)
+- **Testing:** Python standard `unittest` and `pytest>=7.4.0`
 
-| Component | Technology | Version |
-|-----------|------------|---------|
-| Runtime | Python | 3.14 |
-| Primary Scraper | Selenium | 4.15+ |
-| Backup Scraper | Playwright | 1.40+ |
-| Database SDK | firebase-admin | 6.0+ |
-
-### Current Flow (Simplified)
+### Execution Workflow
 
 ```mermaid
 flowchart TD
-    Start([Run main.py]) --> Load[Load sources.json]
-    Load --> Loop["For each source"]
+    Start([Execute main.py]) --> LoadConfig[Load config/sources.json]
+    LoadConfig --> Validate[Validate Source Records & Limits]
+    Validate --> CheckFB[Check Firebase Connection or Dry-Run]
     
-    Loop --> Scrape[Scrape with Selenium]
-    Scrape --> Extract[Extract posts]
-    Extract --> Save[Save to Firebase]
-    Save --> Stats[Log statistics]
+    CheckFB --> LoopSources["For Each Enabled Source"]
+    LoopSources --> LaunchBrowser[Launch Headless Chrome]
+    LaunchBrowser --> Nav[Navigate to facebook.com/source_id]
+    Nav --> Scroll[Scroll Dynamic DOM]
+    Scroll --> ExtractText[Extract Visible Body Text]
+    ExtractText --> ParseBlocks[Extract Blocks & Filter Chrome via src/parser.py]
+    ParseBlocks --> Hash[Compute SHA-256 Content Hash]
+    Hash --> Deduplicate[Deduplicate in Memory]
+    Deduplicate --> Save[Batch Commit to Firestore Collection: posts]
     
-    Stats --> More{More sources?}
-    More -->|Yes| Loop
-    More -->|No| Done([Complete])
-    
-    style Start fill:#4caf50,color:#fff
-    style Done fill:#2196f3,color:#fff
-```
-
-### Target Flow (Full Pipeline)
-
-```mermaid
-flowchart TD
-    Start([Start]) --> Load[Load Config]
-    Load --> Health{Health Check}
-    
-    Health -->|OK| Scrape[Scrape Pages]
-    Health -->|Fail| Alert[Alert & Exit]
-    
-    Scrape --> Extract[Extract Data]
-    Extract --> Dedup{Duplicate?}
-    
-    Dedup -->|Yes| Skip[Skip]
-    Dedup -->|No| Process[Process Post]
-    
-    Process --> Tag[Apply Tags]
-    Tag --> Save[Save to Firebase]
-    
-    Save --> Next{More?}
-    Next -->|Yes| Scrape
-    Next -->|No| Done([Done])
+    Save --> Next{More Sources?}
+    Next -->|Yes| LoopSources
+    Next -->|No| Summary([Print Summary & Exit])
     
     style Start fill:#4caf50,color:#fff
-    style Done fill:#2196f3,color:#fff
-    style Alert fill:#f44336,color:#fff
-```
-
-### Scraper Comparison
-
-| Metric | Selenium | Playwright |
-|--------|----------|------------|
-| Time/page | ~21s | ~15s |
-| Speed | Baseline | 32% faster |
-| Stability | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| Use case | Daily scraping | Large batches |
-
----
-
-## 5. Database (Firebase)
-
-### Configuration
-
-| Setting | Value |
-|---------|-------|
-| Project | `qcu-unified-network` |
-| Region | `asia-southeast1` |
-| Collection | `posts` |
-| Mode | Firestore (NoSQL) |
-
-### Free Tier Usage
-
-| Resource | Limit | Our Use | Status |
-|----------|-------|---------|--------|
-| Reads | 50K/day | ~500 | ✅ Safe |
-| Writes | 20K/day | ~100 | ✅ Safe |
-| Storage | 1 GiB | ~50 MB | ✅ Safe |
-
----
-
-## 6. Mobile App (Future)
-
-**Tech:** Flutter/Dart  
-**Status:** Not started
-
-### Planned Features
-
-```mermaid
-graph LR
-    A[Feed View] --> B[Filter by Source]
-    A --> C[Filter by Tags]
-    A --> D[Search]
-    A --> E[Offline Cache]
-```
-
-### User Flow
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant A as App
-    participant F as Firebase
-    participant FB as Facebook
-
-    U->>A: Open app
-    A->>F: Fetch posts
-    F-->>A: Return posts
-    A-->>U: Show feed
-    
-    U->>A: Tap post
-    A->>FB: Open in browser
-    FB-->>U: Show full post
+    style Summary fill:#2196f3,color:#fff
 ```
 
 ---
 
-## 7. Data Schema
+## 5. Database Architecture (Firebase)
 
-### Current (What We Have)
+The prototype utilizes Google Cloud Firestore (NoSQL Document Store):
+- **Collection:** `posts` (configurable via `FIRESTORE_COLLECTION`)
+- **Document ID:** Deterministic `{source_id}_{content_hash[:12]}`
+- **Security Rule Note:** Production Firestore rules must require authenticated administrative access for writes and allow read-only access for students. Service account keys must never be distributed inside client mobile applications.
+
+---
+
+## 6. Mobile App Specification (Conceptual)
+
+The planned student app was designed to provide:
+1. **Consolidated Feed:** Chronological cards displaying university announcements from all campus pages in one view.
+2. **Category Filters:** Filter by academic unit (Registrar, Guidance, College of Computer Studies, etc.).
+3. **Deep Linking:** Tap card to launch Facebook directly to read full comments or engage with the post.
+4. **Offline Caching:** Local SQLite / Hive cache for viewing previously loaded advisories without data connection.
+
+---
+
+## 7. Normalized Data Schema
 
 ```json
 {
-  "post_id": "qcu1994_abc123",
+  "post_id": "qcu1994_e3b0c44298fc",
   "source_id": "qcu1994",
-  "source_name": "qcu1994",
-  "title": "First 80 chars...",
-  "text": "Full content",
-  "scraped_at": "2026-02-01T08:00:00Z",
-  "content_hash": "sha256:..."
+  "source_name": "QCU Main",
+  "title": "ADVISORY ON MIDTERM EXAMINATIONS",
+  "text": "Full announcement text extracted from rendered DOM blocks...",
+  "body": "Full announcement text (alias for text)...",
+  "content_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "scraped_at": "2026-11-10T14:00:00.000000+00:00",
+  "updated_at": "2026-11-10T14:00:05.000000+00:00"
 }
 ```
 
-### Target (What We Need)
+---
 
-```json
-{
-  "post_id": "qcu1994_abc123",
-  "title": "First 80 chars...",
-  "text": "Full content",
-  "text_preview": "First 200 chars",
-  
-  "source": {
-    "id": "qcu1994",
-    "name": "QCU Main",
-    "url": "https://facebook.com/qcu1994"
-  },
-  
-  "post_url": "https://facebook.com/.../posts/123",
-  "posted_at": "2026-01-31T12:33:00+08:00",
-  "images": ["https://scontent..."],
-  
-  "scraped_at": "2026-02-01T08:00:00Z",
-  "content_hash": "sha256:...",
-  
-  "tags": ["ENROLLMENT", "BSIT"],
-  "is_pinned": false
-}
-```
+## 8. Risk Assessment & Limitations
 
-### Schema Gap
-
-| Field | Current | Target | Priority |
-|-------|---------|--------|----------|
-| post_url | ❌ | ✅ | 🔴 Critical |
-| posted_at | ❌ | ✅ | 🔴 Critical |
-| images | ❌ | ✅ | 🔴 Critical |
-| source.name | ❌ | ✅ | 🟡 High |
-| tags | ❌ | ✅ | 🟡 Medium |
-| is_pinned | ❌ | ✅ | 🟢 Low |
+### Platform & Legal Considerations
+- **Meta Terms of Service:** Automated scraping without explicit prior permission from Meta violates Section 3.2.3 of the Meta Terms of Service.
+- **Account Vulnerability:** Injecting personal login cookies into scraping bots creates substantial risk of account compromise and suspension.
+- **DOM Fragility:** Scraping front-end markup is intrinsically fragile. Minor design updates or A/B testing on Facebook can break text block parsing.
+- **Sustainable University Recommendation:** For a long-term production service, university IT departments should establish direct RSS feeds, webhooks from official university portals, or formal Meta Graph API integrations rather than headless browser scraping.
 
 ---
 
-## 8. Design Principles
+## 9. Related Documents
 
-| Principle | Description | Application |
-|-----------|-------------|-------------|
-| 🔄 **Scalability** | Grows without rewrites | Add sources via JSON config |
-| 🧩 **Simplicity** | Understandable in 10 min | One file per responsibility |
-| 📖 **Readability** | Self-documenting code | Descriptive names |
-| 🔧 **Flexibility** | Config-driven behavior | No hardcoded values |
-| 📚 **Documentation** | Always current | Update with every change |
-| 🛡️ **Resilience** | Graceful failures | Never crash, always log |
-
----
-
-## 9. Risk Management
-
-### Risk Matrix
-
-```mermaid
-quadrantChart
-    title Risk Assessment
-    x-axis Low Impact --> High Impact
-    y-axis Low Probability --> High Probability
-    quadrant-1 Monitor
-    quadrant-2 Mitigate Now
-    quadrant-3 Accept
-    quadrant-4 Have Backup Plan
-    
-    Cookie Expiry: [0.3, 0.8]
-    Rate Limiting: [0.4, 0.3]
-    Account Ban: [0.7, 0.4]
-    FB HTML Change: [0.6, 0.5]
-    Legal Action: [0.9, 0.1]
-```
-
-### Mitigation Strategies
-
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| Cookie expires | HIGH | Low | Re-export cookies |
-| Rate limited | MEDIUM | Low | Wait, use delays |
-| Account banned | MEDIUM | Medium | New account |
-| FB HTML changes | MEDIUM | Medium | Update selectors |
-| Legal action | VERY LOW | High | Educational use |
-
-### Backup Plan
-
-If scraping fails completely:
-1. **Admin Portal** - Manual posting
-2. **RSS feeds** - If FB enables
-3. **Official API** - If available
-
----
-
-## 📎 Related Documents
-
-| Document | Purpose |
-|----------|---------|
-| [README.md](README.md) | Quick start |
-| [GUIDE.md](GUIDE.md) | Development guide |
-
----
-
-*This document is the source of truth for the QCU Unified Network architecture.*
+- [README.md](README.md) — Public repository documentation and setup guide
+- [GUIDE.md](GUIDE.md) — Developer log and technical implementation details
+- [SECURITY.md](SECURITY.md) — Security policy and historical incident disclosures
